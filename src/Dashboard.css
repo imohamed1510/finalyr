@@ -1,0 +1,44 @@
+.viewer {
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    width: 100%;
+    height: 500px;
+    /* Adjust height as needed */
+    overflow: auto;
+    position: relative;
+    /* Ensure relative positioning for absolute children */
+}
+
+.viewer-content {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.annotation-container {
+    position: relative;
+    /* Container for absolute positioning */
+    width: 100%;
+    /* Adjust as needed */
+    height: 100%;
+    /* Adjust as needed */
+}
+
+.pdf-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    /* Lower z-index for the PDF canvas */
+}
+
+.annotation-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    /* Higher z-index for the annotation canvas */
+    pointer-events: auto;
+    /* Allow interactions with the annotation canvas */
+}

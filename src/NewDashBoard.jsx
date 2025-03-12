@@ -1,12 +1,14 @@
+//TTS WORKS BUT NO PAUSE/STOP, LOADS WHOLE PDF
 
-import { useEffect, useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import * as fabric from 'fabric';
 import supabase from '../src/supabaseClient';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
 import './Dashboard.css';
+import { useState, useEffect, useRef } from 'react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
@@ -39,7 +41,7 @@ const DashboardPage = () => {
   const uploadFile = async (file) => {
     if (!file || !userId) return;
 
-    const fileId = uuidv4(); // Generate a unique file ID
+    const fileId = uuidv4();
     const fileUrl = URL.createObjectURL(file);
     setSelectedFile({ id: fileId, url: fileUrl, type: file.type, name: file.name });
 
@@ -81,7 +83,7 @@ const DashboardPage = () => {
       console.error('Error fetching media:', error);
     } else {
       const mediaWithUrls = data.map(item => ({
-        id: item.name.split('_')[0], // Extract the file ID from the file name
+        id: item.name.split('_')[0],
         name: item.name,
         url: supabase.storage.from('uploads').getPublicUrl(`${userId}/${item.name}`).data.publicUrl,
         type: item.name.endsWith('.pdf') ? 'application/pdf' : 'unknown'
@@ -92,7 +94,6 @@ const DashboardPage = () => {
 
   const initCanvas = () => {
     if (annotationCanvasRef.current) {
-      // Destroy previous instance if it exists
       if (fabricCanvas.current) {
         fabricCanvas.current.dispose();
       }
@@ -131,7 +132,6 @@ const DashboardPage = () => {
     }
   };
 
-
   const renderPDF = async (pdfUrl) => {
     try {
       const pdf = await pdfjsLib.getDocument({ url: pdfUrl }).promise;
@@ -157,7 +157,7 @@ const DashboardPage = () => {
       annotationCanvas.height = canvas.height;
 
       initCanvas();
-      setTimeout(loadAnnotations, 500); // Ensure annotations load after canvas initialization
+      setTimeout(loadAnnotations, 500);
 
     } catch (error) {
       console.error("Error rendering PDF:", error);
@@ -183,16 +183,14 @@ const DashboardPage = () => {
 
     console.log("Annotations fetched:", data);
 
-    // Clear existing annotations before adding new ones
     fabricCanvas.current.clear();
 
     if (data.length > 0) {
       data.forEach((annotation) => {
-        const annotationData = annotation.annotation_data; // Raw object from DB
+        const annotationData = annotation.annotation_data;
 
         console.log("Loading annotation:", annotationData);
 
-        // Manually recreate the Fabric.js Path object
         const pathObject = new fabric.Path(annotationData.path, {
           left: annotationData.left,
           top: annotationData.top,
@@ -212,15 +210,65 @@ const DashboardPage = () => {
     }
   };
 
+  const speakText = (text) => {
+    const synth = window.speechSynthesis;
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = synth.getVoices();
+    utterance.voice = voices.find((voice) => voice.lang === 'en-US') || voices[0];
+    synth.speak(utterance);
+  };
 
-  
+  const extractTextFromImage = async (imageUrl) => {
+    const { data: { text } } = await Tesseract.recognize(imageUrl, 'eng');
+    return text;
+  };
 
+  const handleTTS = async () => {
+    if (selectedFile && selectedFile.type === "application/pdf") {
+      try {
+        console.log("Loading PDF document...");
+        const pdf = await pdfjsLib.getDocument({ url: selectedFile.url }).promise;
+        console.log("PDF document loaded. Number of pages:", pdf.numPages);
 
-  
+        let fullText = '';
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          console.log(`Extracting text from page ${pageNum}...`);
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          await page.render({ canvasContext: context, viewport }).promise;
+          const imageUrl = canvas.toDataURL('image/png');
+
+          const pageText = await extractTextFromImage(imageUrl);
+          console.log(`Page ${pageNum} text:`, pageText);
+          fullText += pageText + ' ';
+        }
+
+        if (fullText.trim()) {
+          console.log("Extracted text:", fullText);
+          speakText(fullText);
+        } else {
+          console.error("No text found in PDF.");
+          alert("No text could be extracted from the PDF.");
+        }
+      } catch (error) {
+        console.error("Error extracting text from PDF:", error);
+        alert("An error occurred while extracting text from the PDF.");
+      }
+    } else {
+      console.log("No PDF file selected.");
+      alert("Please select a PDF file first.");
+    }
+  };
 
   useEffect(() => {
     if (selectedFile && selectedFile.type === "application/pdf") {
-      console.log("Selected file is a PDF:", selectedFile.url); // Debugging line
+      console.log("Selected file is a PDF:", selectedFile.url);
       renderPDF(selectedFile.url);
     }
   }, [selectedFile]);
@@ -239,15 +287,11 @@ const DashboardPage = () => {
             <p>Drag & drop a PDF file here or click to upload</p>
           </div>
 
-          {/* Display the list of uploaded files */}
           <div className="file-list">
             <h3>Your Uploaded Files</h3>
             <ul>
               {media.map((file, index) => (
-                <li key={index} onClick={() => {
-                  console.log("File clicked:", file); // Debugging line
-                  setSelectedFile(file);
-                }}>
+                <li key={index} onClick={() => setSelectedFile(file)}>
                   {file.name}
                 </li>
               ))}
@@ -263,6 +307,9 @@ const DashboardPage = () => {
             )}
           </div>
 
+          <div className="tts-section">
+            <button onClick={handleTTS}>Read PDF Aloud</button>
+          </div>
           <div className="sign-out">
             <button onClick={signOut}>Logout</button>
           </div>

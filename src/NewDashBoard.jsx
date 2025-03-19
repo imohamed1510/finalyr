@@ -1,6 +1,4 @@
-// // //TTS added chnagin speed + fonts but still have speech synthesis error, LOADS WHOLE PDF,audio not connected to supabase
-
-// STT CAN CHANGE SPEED BUT DOESNT CONTINUE FORM WHERE IT WAS
+//BASIC TTS WORKS WITH SYNCHRO HIGHLIGHTING WHILE CHNAGING SPEED, still get synth error
 import { v4 as uuidv4 } from 'uuid';
 import * as fabric from 'fabric';
 import supabase from '../src/supabaseClient';
@@ -28,10 +26,8 @@ const DashboardPage = () => {
   const [speed, setSpeed] = useState(1);
   const lastSpokenWordIndex = useRef(0);
   const [extractedText, setExtractedText] = useState("");
-
-
-
-  
+  const textPositionsRef = useRef([]); // Track text positions
+  const currentHighlights = useRef([]); // Track current highlights
 
   useEffect(() => {
     getUser();
@@ -49,48 +45,6 @@ const DashboardPage = () => {
       setSelectedVoice(availableVoices.find((voice) => voice.lang === 'en-US') || availableVoices[0]);
     }
   }, []);
-
-  useEffect(() => {
-    if (utterance && isPlaying) {
-      const synth = window.speechSynthesis;
-      let lastSpokenWordIndex = 0;
-
-      utterance.onboundary = (event) => {
-        // Ensure we are tracking words correctly
-        if (event.name === "word") {
-          lastSpokenWordIndex = event.charIndex;
-        }
-      };
-
-      // Stop current speech
-      synth.cancel();
-
-      setTimeout(() => {
-        // Get remaining text from the last spoken word index
-        const words = utterance.text.split(" ");
-        const remainingText = words.slice(lastSpokenWordIndex).join(" ");
-
-        if (!remainingText.trim()) return; // Prevent empty speech
-
-        // Create a new utterance
-        const newUtterance = new SpeechSynthesisUtterance(remainingText);
-        newUtterance.voice = selectedVoice;
-        newUtterance.rate = speed;
-
-        // Maintain event listeners
-        newUtterance.onstart = () => setIsPlaying(true);
-        newUtterance.onend = () => setIsPlaying(false);
-        newUtterance.onerror = (error) => {
-          console.error("Speech synthesis error:", error);
-          setIsPlaying(false);
-        };
-
-        // Update state and restart speech
-        setUtterance(newUtterance);
-        synth.speak(newUtterance);
-      }, 300); // Slight delay for smooth transition
-    }
-  }, [speed]); // Runs when speed changes
 
   const getUser = async () => {
     try {
@@ -230,9 +184,6 @@ const DashboardPage = () => {
   const loadAnnotations = async () => {
     if (!selectedFile || !userId) return;
 
-    console.log("Fetching annotations for file_id:", selectedFile.id);
-    console.log("Fetching annotations for user_id:", userId);
-
     const { data, error } = await supabase
       .from("annotations")
       .select("annotation_data")
@@ -244,16 +195,11 @@ const DashboardPage = () => {
       return;
     }
 
-    console.log("Annotations fetched:", data);
-
     fabricCanvas.current.clear();
 
     if (data.length > 0) {
       data.forEach((annotation) => {
         const annotationData = annotation.annotation_data;
-
-        console.log("Loading annotation:", annotationData);
-
         const pathObject = new fabric.Path(annotationData.path, {
           left: annotationData.left,
           top: annotationData.top,
@@ -263,45 +209,13 @@ const DashboardPage = () => {
           selectable: false,
         });
 
-        console.log("Created Fabric.js Path object:", pathObject);
-
         fabricCanvas.current.add(pathObject);
         fabricCanvas.current.renderAll();
       });
-    } else {
-      console.log("No annotations found for this file and user.");
     }
   };
 
-  const speakText = (text) => {
-    const synth = window.speechSynthesis;
-
-    // Cancel any ongoing speech
-    synth.cancel();
-
-    // Create a new utterance
-    const newUtterance = new SpeechSynthesisUtterance(text);
-    newUtterance.voice = selectedVoice;
-    newUtterance.rate = speed;
-
-    // Set up event listeners for the utterance
-    newUtterance.onstart = () => {
-      setIsPlaying(true);
-    };
-
-    newUtterance.onend = () => {
-      setIsPlaying(false);
-    };
-
-    newUtterance.onerror = (error) => {
-      console.error("Speech synthesis error:", error);
-      setIsPlaying(false);
-    };
-
-    // Set the utterance and start speaking
-    setUtterance(newUtterance);
-    synth.speak(newUtterance);
-  };
+  
 
   const togglePauseResume = () => {
     const synth = window.speechSynthesis;
@@ -314,41 +228,65 @@ const DashboardPage = () => {
     }
   };
 
+  
   const restartTTS = () => {
     if (extractedText.trim()) {
-      window.speechSynthesis.cancel(); // Stop current speech
-      lastSpokenWordIndex.current = 0; // Reset position
+      window.speechSynthesis.cancel();
+      lastSpokenWordIndex.current = 0;
 
-      setTimeout(() => {
-        const newUtterance = new SpeechSynthesisUtterance(extractedText); // ✅ Use extracted text
-        newUtterance.voice = selectedVoice;
-        newUtterance.rate = speed;
+      // Clears existing highlights
+      currentHighlights.current.forEach(h => fabricCanvas.current.remove(h));
+      currentHighlights.current = []; 
+      fabricCanvas.current.renderAll(); 
 
-        newUtterance.onstart = () => setIsPlaying(true);
-        newUtterance.onend = () => setIsPlaying(false);
-        newUtterance.onerror = (error) => {
-          console.error("Speech synthesis error:", error);
-          setIsPlaying(false);
-        };
+      // Create a new utterance with the full text
+      const newUtterance = new SpeechSynthesisUtterance(extractedText);
+      newUtterance.voice = selectedVoice;
+      newUtterance.rate = speed;
 
-        newUtterance.onboundary = (event) => {
-          if (event.name === "word") {
-            lastSpokenWordIndex.current = event.charIndex;
-          }
-        };
+      newUtterance.onstart = () => setIsPlaying(true);
+      newUtterance.onend = () => setIsPlaying(false);
+      newUtterance.onerror = (error) => {
+        console.error("Speech synthesis error:", error);
+        setIsPlaying(false);
+      };
 
-        setUtterance(newUtterance);
-        window.speechSynthesis.speak(newUtterance);
-      }, 200); // Prevent "interrupted" errors
+      newUtterance.onboundary = (event) => {
+        if (event.name === "word") {
+          const charIndex = event.charIndex;
+          const wordLength = event.charLength;
+
+          // Find matching text positions
+          const matching = textPositionsRef.current.filter(pos => 
+            pos.startIndex <= charIndex + wordLength && 
+            pos.endIndex >= charIndex
+          );
+
+          // Clear previous highlights
+          currentHighlights.current.forEach(h => fabricCanvas.current.remove(h));
+          fabricCanvas.current.renderAll();
+
+          // Addsnew highlights
+          currentHighlights.current = matching.map(pos => {
+            const rect = new fabric.Rect({
+              left: pos.x,
+              top: pos.y - pos.height, // Proper highlighting alignment
+              width: pos.width,
+              height: pos.height,
+              fill: 'rgba(255, 255, 0, 0.3)', 
+              selectable: false,
+            });
+            fabricCanvas.current.add(rect);
+            return rect;
+          });
+
+          fabricCanvas.current.renderAll(); 
+        }
+      };
+
+      setUtterance(newUtterance);
+      window.speechSynthesis.speak(newUtterance);
     }
-  };
-
-
-
-
-  const extractTextFromImage = async (imageUrl) => {
-    const { data: { text } } = await Tesseract.recognize(imageUrl, 'eng');
-    return text;
   };
 
   const handleTTS = async () => {
@@ -357,25 +295,43 @@ const DashboardPage = () => {
 
     if (selectedFile && selectedFile.type === "application/pdf") {
       try {
-        console.log("Loading PDF document...");
         const pdf = await pdfjsLib.getDocument({ url: selectedFile.url }).promise;
-        console.log("PDF document loaded. Number of pages:", pdf.numPages);
-
-        let textContent = '';
+        let currentIndex = 0;
+        const textPositions = [];
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          console.log(`Extracting text from page ${pageNum}...`);
           const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 1.5 });
           const text = await page.getTextContent();
 
-          // Extract text from PDF
-          textContent += text.items.map(item => item.str).join(" ") + " ";
+          text.items.forEach((item) => {
+            const tx = item.transform[4];
+            const ty = item.transform[5];
+            const [x, y] = viewport.convertToViewportPoint(tx, ty);
+
+            // Calculate the correct Y-coordinate for Fabric.js
+            const canvasY = viewport.height - y - (item.height * viewport.scale);
+
+            textPositions.push({
+              str: item.str,
+              x: x,
+              y: y, //if chgnge from canvasY yo y it underlines not highlights over
+              width: item.width * viewport.scale,
+              height: item.height * viewport.scale,
+              startIndex: currentIndex,
+              endIndex: currentIndex + item.str.length,
+            });
+
+            currentIndex += item.str.length + 1; // +1 for space
+          });
         }
 
-        setExtractedText(textContent); // ✅ Save extracted text
+        textPositionsRef.current = textPositions;
+
+        const textContent = textPositions.map(pos => pos.str).join(" ");
+        setExtractedText(textContent);
 
         if (textContent.trim()) {
-          console.log("Extracted text:", textContent);
           speakText(textContent);
         } else {
           console.error("No text found in PDF.");
@@ -391,10 +347,59 @@ const DashboardPage = () => {
     }
   };
 
+  const speakText = (text) => {
+    const synth = window.speechSynthesis;
+    synth.cancel();
+
+    const newUtterance = new SpeechSynthesisUtterance(text);
+    newUtterance.voice = selectedVoice;
+    newUtterance.rate = speed;
+
+    newUtterance.onboundary = (event) => {
+      if (event.name === "word") {
+        const charIndex = event.charIndex;
+        const wordLength = event.charLength;
+
+        // Find matching text positions
+        const matching = textPositionsRef.current.filter(pos => 
+          pos.startIndex <= charIndex + wordLength && 
+          pos.endIndex >= charIndex
+        );
+
+        // Clear previous highlights
+        currentHighlights.current.forEach(h => fabricCanvas.current.remove(h));
+        fabricCanvas.current.renderAll();
+
+        // Add new highlights
+        currentHighlights.current = matching.map(pos => {
+          const rect = new fabric.Rect({
+            left: pos.x,
+            top: pos.y - pos.height,
+            width: pos.width,
+            height: pos.height,
+            fill: 'rgba(237, 237, 22, 0.37)',
+            selectable: false,
+          });
+          fabricCanvas.current.add(rect);
+          return rect;
+        });
+        fabricCanvas.current.renderAll(); // Render the canvas to show the new highlights
+      }
+    };
+
+  newUtterance.onstart = () => setIsPlaying(true);
+  newUtterance.onend = () => setIsPlaying(false);
+  newUtterance.onerror = (error) => {
+    console.error("Speech synthesis error:", error);
+    setIsPlaying(false);
+  };
+
+  setUtterance(newUtterance);
+  synth.speak(newUtterance);
+};
 
   useEffect(() => {
     if (selectedFile && selectedFile.type === "application/pdf") {
-      console.log("Selected file is a PDF:", selectedFile.url);
       renderPDF(selectedFile.url);
     }
   }, [selectedFile]);
@@ -404,58 +409,69 @@ const DashboardPage = () => {
     setUserId('');
   };
 
-  useEffect(() => {
-    const synth = window.speechSynthesis;
-    const availableVoices = synth.getVoices();
-    setVoices(availableVoices);
-    if (availableVoices.length > 0) {
-      setSelectedVoice(availableVoices.find((voice) => voice.lang === 'en-US') || availableVoices[0]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (utterance && isPlaying) {
-      utterance.onboundary = (event) => {
-        if (event.name === "word") {
-          lastSpokenWordIndex.current = event.charIndex; // Use `.current`
-        }
-      };
-    }
-  }, [utterance, isPlaying]);
-
+  
   const updateSpeed = (newSpeed) => {
     setSpeed(newSpeed);
 
     if (utterance && isPlaying) {
-      const synth = window.speechSynthesis;
-      const remainingText = utterance.text.slice(lastSpokenWordIndex.current);
+        const synth = window.speechSynthesis;
+        synth.cancel(); //stop only if needed!!
 
-      if (!remainingText.trim()) return;
+        const resumeFromIndex = lastSpokenWordIndex.current || 0;
 
-      synth.cancel(); // Stop only if absolutely needed
+        //use the full extracted text
+        const remainingText = extractedText.slice(resumeFromIndex);
+        if (!remainingText.trim()) return;
 
-      const newUtterance = new SpeechSynthesisUtterance(remainingText);
-      newUtterance.voice = selectedVoice;
-      newUtterance.rate = newSpeed;
-      
-      newUtterance.onstart = () => setIsPlaying(true);
-      newUtterance.onend = () => setIsPlaying(false);
-      newUtterance.onerror = (error) => {
-        console.error("Speech synthesis error:", error);
-        setIsPlaying(false);
-      };
+        const newUtterance = new SpeechSynthesisUtterance(remainingText);
+        newUtterance.voice = selectedVoice;
+        newUtterance.rate = newSpeed;
 
-      newUtterance.onboundary = (event) => {
-        if (event.name === "word") {
-          lastSpokenWordIndex.current = event.charIndex;
-        }
-      };
+        newUtterance.onstart = () => setIsPlaying(true);
+        newUtterance.onend = () => setIsPlaying(false);
+        newUtterance.onerror = (error) => {
+            console.error("Speech synthesis error:", error);
+            setIsPlaying(false);
+        };
 
-      setUtterance(newUtterance);
-      synth.speak(newUtterance);
+        newUtterance.onboundary = (event) => {
+            if (event.name === "word") {
+                lastSpokenWordIndex.current = resumeFromIndex + event.charIndex;
+
+                // Find matching text positions for highlighting
+                const charIndex = lastSpokenWordIndex.current;
+                const wordLength = event.charLength;
+
+                const matching = textPositionsRef.current.filter(pos => 
+                    pos.startIndex <= charIndex + wordLength && 
+                    pos.endIndex >= charIndex
+                );
+
+                // Clear old highlights
+                currentHighlights.current.forEach(h => fabricCanvas.current.remove(h));
+                fabricCanvas.current.renderAll();
+
+                // Add new highlights
+                currentHighlights.current = matching.map(pos => {
+                    const rect = new fabric.Rect({
+                        left: pos.x,
+                        top: pos.y - pos.height,
+                        width: pos.width,
+                        height: pos.height,
+                        fill: 'rgba(237, 237, 22, 0.37)',
+                        selectable: false,
+                    });
+                    fabricCanvas.current.add(rect);
+                    return rect;
+                });
+                fabricCanvas.current.renderAll();
+            }
+        };
+
+        setUtterance(newUtterance);
+        synth.speak(newUtterance);
     }
   };
-
 
 
   return (
@@ -519,7 +535,7 @@ const DashboardPage = () => {
                 max="2"
                 step="0.1"
                 value={speed}
-                onChange={(e) => updateSpeed(parseFloat(e.target.value))}
+                onChange={(e) => updateSpeed(parseFloat(e.target.value))} // Call updateSpeed
               />
             </div>
           </div>
@@ -535,4 +551,6 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+
+
 

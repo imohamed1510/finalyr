@@ -4,11 +4,10 @@
     padding: 10px;
     width: 100%;
     height: 500px;
-    /* Adjust height as needed */
     overflow: auto;
     position: relative;
-    /* Ensure relative positioning for absolute children */
-}
+
+} 
 
 .viewer-content {
     width: 100%;
@@ -23,13 +22,14 @@
     /* Adjust as needed */
     height: 100%;
     /* Adjust as needed */
-}
+} 
 
 .pdf-canvas {
     position: absolute;
     top: 0;
     left: 0;
     z-index: 1;
+    user-select: text;
     /* Lower z-index for the PDF canvas */
 }
 
@@ -42,3 +42,109 @@
     pointer-events: auto;
     /* Allow interactions with the annotation canvas */
 }
+
+.text-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: auto; 
+    /* Allow text selection */
+    user-select: text;
+    /* Allow text selection */
+    z-index: 3;
+    /* Ensure the text layer is above the canvas */
+}
+
+.upload-section {
+  padding: 15px;
+  border: 2px dashed #ccc;
+  border-radius: 5px;
+  text-align: center;
+  min-width: 300px;
+}
+
+.file-list {
+  flex-grow: 1;
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.file-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-list li {
+  padding: 5px;
+  cursor: pointer;
+}
+
+.file-list li:hover {
+  background-color: #f0f0f0;
+}
+
+.main-content {
+  display: flex;
+  flex-grow: 1;
+  gap: 15px;
+  min-height: 0; 
+}
+
+.viewer-container {
+  flex-grow: 1;
+  position: relative;
+}
+
+/* // Add this CSS to your Dashboard.css: */
+.comment-highlight {
+  background-color: #fff8c5;
+  border-bottom: 1px solid #d4d4d4;
+  cursor: pointer;
+}
+
+.comment-highlight:hover {
+  background-color: #ffe066;
+}
+
+.comment-sidebar {
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 300px;
+  height: 100vh;
+  background: white;
+  border-left: 1px solid #ddd;
+  padding: 20px;
+  overflow-y: auto;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+}
+
+.comment-item {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 10px;
+}
+
+.comment-text {
+  margin-bottom: 5px;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.comment-input {
+  margin-top: 20px;
+}
+
+.comment-input textarea {
+  width: 100%;
+  min-height: 80px;
+  margin-bottom: 10px;
+}
+

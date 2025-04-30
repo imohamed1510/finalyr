@@ -99,16 +99,25 @@
   position: relative;
 }
 
-/* // Add this CSS to your Dashboard.css: */
-.comment-highlight {
-  background-color: #fff8c5;
-  border-bottom: 1px solid #d4d4d4;
+/* new for comment section */
+/* .comment-highlight {
+  background-color: rgba(255, 235, 59, 0.3);
+  border-bottom: 2px dashed #ffc10744;
   cursor: pointer;
+  transition: background-color 0.3s;
 }
 
 .comment-highlight:hover {
-  background-color: #ffe066;
+  background-color: rgba(255, 255, 0, 0.4); 
+  cursor: pointer;
 }
+
+.comment-marker {
+  color: #ffd043;
+  cursor: pointer;
+  font-size: 1.2em;
+  margin: 0 2px;
+} */
 
 .comment-sidebar {
   position: fixed;
@@ -146,5 +155,11 @@
   width: 100%;
   min-height: 80px;
   margin-bottom: 10px;
+}
+
+/* Make sure highlights appear above PDF canvas */
+.comment-highlight, .comment-marker {
+  position: relative;
+  z-index: 4;
 }
 

@@ -1,5 +1,4 @@
-
-//UPDATED CSS, NEED TO FIX SYNCHRO HIGHLIGHTING FOR SELECTED TEXT, CONNECTED COMMENTS TO SUPABASE 
+//COMMENTS CORRECTLY HIGHLIGHTS,DELETE,CONNECTS TO SUPABASE,REAPPEARS
 import { v4 as uuidv4 } from 'uuid';
 import * as fabric from 'fabric';
 import supabase from '../src/supabaseClient';
@@ -36,7 +35,9 @@ const DashboardPage = () => {
   const [newComment, setNewComment] = useState("");
   const [selectedComment, setSelectedComment] = useState(null);
   const [showCommentInput, setShowCommentInput] = useState(false);
-  const [commentPosition, setCommentPosition] = useState({ x: 0, y: 0 });
+  const [tempSelectionRange, setTempSelectionRange] = useState(null);
+
+  
 
   useEffect(() => {
     getUser();
@@ -92,7 +93,7 @@ const DashboardPage = () => {
         name: file.name 
       });
   
-      // 4. Refresh the media list
+      
       await getMedia();
   
     } catch (error) {
@@ -494,7 +495,10 @@ const DashboardPage = () => {
   
       initCanvas(); // Respects current annotationCanvas size
       await createTextLayer(page, viewport, scale); // Pass scale directly
-      loadAnnotations();
+      // Wait a little before loading annotations
+      setTimeout(() => {
+        loadAnnotations();
+      }, 0);
     } catch (error) {
       console.error("Error rendering PDF:", error);
     }
@@ -537,16 +541,71 @@ const DashboardPage = () => {
     if (container) container.appendChild(textLayer);
   };
   
+  const getXPathForElement = (element) => {
+    if (element === document.body) return '/html/body';
   
+    const idx = Array.from(element.parentNode.childNodes)
+      .filter(node => node.nodeType === Node.ELEMENT_NODE && node.nodeName === element.nodeName)
+      .indexOf(element) + 1;
+  
+    return getXPathForElement(element.parentNode) +
+      '/' +
+      element.nodeName.toLowerCase() +
+      `[${idx}]`;
+  };
+  
+  const getXPathForTextNode = (node) => {
+    if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+  
+    let parent = node.parentNode;
+    let index = 0;
+    for (let sibling = parent.firstChild; sibling; sibling = sibling.nextSibling) {
+      if (sibling === node) break;
+      if (sibling.nodeType === Node.TEXT_NODE) index++;
+    }
+  
+    const elementPath = getXPathForElement(parent);
+    return `${elementPath}/text()[${index + 1}]`;
+  };
 
   const handleTextSelection = () => {
     const selection = window.getSelection();
-    if (selection && selection.toString().trim()) {
-      const selectedText = selection.toString();
-      console.log("Selected Text:", selectedText); // Debugging
-      setSelectedText(selectedText);
+    if (!selection || selection.isCollapsed) return;
+  
+    const range = selection.getRangeAt(0);
+    const startNode = range.startContainer;
+    const endNode = range.endContainer;
+  
+    const textLayer = document.querySelector('.text-layer');
+    if (!textLayer) {
+      console.error('No text-layer found for selection!');
+      return;
     }
+  
+    if (!textLayer.contains(startNode) || !textLayer.contains(endNode)) {
+      console.warn('Selection is outside the text-layer.');
+      return;
+    }
+  
+    const startPath = getXPathForTextNode(startNode, textLayer);
+    const endPath = getXPathForTextNode(endNode, textLayer);
+  
+    const selection_range = {
+      startPath,
+      startOffset: range.startOffset,
+      endPath,
+      endOffset: range.endOffset,
+    };
+  
+    const selectedText = selection.toString();
+  
+    console.log('Selected text:', selectedText);
+    console.log('Selection range:', selection_range);
+  
+    setSelectedText(selectedText);
+    setTempSelectionRange(selection_range); 
   };
+  
 
   const speakSelectedText = () => {
     if (selectedText.trim()) {
@@ -623,32 +682,44 @@ const DashboardPage = () => {
     }
   };
 
-  // useEffect(() => {
-  //   if (selectedFile) {
-  //     fetchComments();
-  //   }
-  // }, [selectedFile, userId]);
+  //useEffect to fetch comments when selectedFile changes
+  useEffect(() => {
+    if (selectedFile) {
+      fetchComments();
+    } else {
+      setComments([]); // Clear comments when no file is selected
+    }
+  }, [selectedFile?.id]); // Only run when file ID changes
 
-  // Replace your existing comment functions with these:
 
   const fetchComments = async () => {
     if (!selectedFile || !userId) return;
-
+  
     const { data, error } = await supabase
       .from('comments')
       .select('*')
       .eq('file_id', selectedFile.id)
       .order('created_at', { ascending: false });
-
+  
     if (error) {
       console.error('Error fetching comments:', error);
     } else {
       setComments(data || []);
-      // Highlight all comments when fetched
-      data.forEach(comment => highlightCommentedText(comment));
+  
+      // Ensure DOM is ready before applying highlights
+      setTimeout(() => {
+        (data || []).forEach(comment => {
+          try {
+            highlightCommentedText(comment);
+          } catch (e) {
+            console.warn('Highlight failed for comment:', comment, e);
+          }
+        });
+      }, 50); // slight delay to allow DOM to finish rendering
     }
   };
-
+  
+  
   const saveComment = async () => {
     if (!selectedFile || !userId || !newComment.trim()) return;
   
@@ -660,7 +731,15 @@ const DashboardPage = () => {
   
     const range = selection.getRangeAt(0);
     const selectedText = selection.toString();
-    
+  
+    const getXPath = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return getXPathForTextNode(node);
+      } else {
+        return getXPathForElement(node);
+      }
+    };
+  
     try {
       const commentData = {
         user_id: userId,
@@ -675,8 +754,7 @@ const DashboardPage = () => {
         }
       };
   
-      // Only include selected_text if you're sure the column exists
-      // commentData.selected_text = selectedText;
+      console.log("Saving comment:", commentData);  // Log to check the structure
   
       const { data, error } = await supabase
         .from('comments')
@@ -686,7 +764,10 @@ const DashboardPage = () => {
       if (error) throw error;
   
       setComments(prev => [data[0], ...prev]);
+      
+      console.log("Highlighting comment:", data[0]);  // Log data passed to highlight
       highlightCommentedText(data[0]);
+  
       setNewComment("");
     } catch (error) {
       console.error('Detailed error:', {
@@ -694,128 +775,18 @@ const DashboardPage = () => {
         details: error.details,
         code: error.code
       });
-      
-      // If it's a schema cache error, try refreshing
+  
       if (error.code === 'PGRST204') {
         console.log('Refreshing schema cache...');
         await supabase.rpc('refresh_schema_cache');
-        // Retry without selected_text
         await saveComment();
       } else {
         alert("Failed to save comment. Check console for details.");
       }
     }
   };
+  
 
-  // Helper function to get XPath
-  const getXPath = (element) => {
-    if (!element) return '';
-    
-    // If element has an ID, use that for simplicity
-    if (element.id) {
-      return `//*[@id="${element.id}"]`;
-    }
-  
-    // Handle text nodes by using their parent element
-    if (element.nodeType === Node.TEXT_NODE) {
-      return getXPath(element.parentNode);
-    }
-  
-    const parts = [];
-    while (element && element.nodeType === Node.ELEMENT_NODE) {
-      let index = 0;
-      const siblings = element.parentNode?.childNodes || [];
-      
-      for (let i = 0; i < siblings.length; i++) {
-        const sibling = siblings[i];
-        if (sibling === element) {
-          parts.unshift(`${element.tagName.toLowerCase()}[${index + 1}]`);
-          break;
-        }
-        if (sibling.nodeType === Node.ELEMENT_NODE && sibling.tagName === element.tagName) {
-          index++;
-        }
-      }
-      
-      if (!siblings.length) {
-        parts.unshift(element.tagName.toLowerCase());
-      }
-      
-      element = element.parentNode;
-    }
-  
-    return parts.length ? `/${parts.join('/')}` : null;
-  };
-
-  // Highlight commented text
-  const highlightCommentedText = (comment) => {
-    if (!comment?.selection_range) return;
-  
-    try {
-      // First remove any existing highlight for this comment
-      document.querySelectorAll(`[data-comment-id="${comment.id}"]`).forEach(el => {
-        el.replaceWith(...el.childNodes);
-      });
-  
-      const { startPath, startOffset, endPath, endOffset } = comment.selection_range;
-      
-      // Find the nodes using XPath
-      const startNode = document.evaluate(
-        startPath,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null
-      ).singleNodeValue;
-  
-      const endNode = document.evaluate(
-        endPath,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null
-      ).singleNodeValue;
-  
-      if (!startNode || !endNode) {
-        console.warn('Could not find nodes for comment:', comment.id);
-        return;
-      }
-  
-      const range = document.createRange();
-      range.setStart(startNode, startOffset);
-      range.setEnd(endNode, endOffset);
-      
-      // Only proceed if the range is valid
-      if (range.collapsed) {
-        console.warn('Range is collapsed for comment:', comment.id);
-        return;
-      }
-      
-      const span = document.createElement('span');
-      span.className = 'comment-highlight';
-      span.dataset-comment-id ; comment.id;
-      span.style.backgroundColor = '#fff8c5';
-      span.style.borderBottom = '1px solid #d4d4d4';
-      span.style.cursor = 'pointer';
-      
-      try {
-        range.surroundContents(span);
-      } catch (e) {
-        console.error('Could not surround contents:', e);
-        return;
-      }
-      
-      span.addEventListener('click', () => {
-        setSelectedComment(comment);
-      });
-    } catch (error) {
-      console.error('Error highlighting comment:', {
-        error,
-        commentId: comment.id
-      });
-    }
-  };
-  
   const deleteComment = async (commentId) => {
     const { error } = await supabase
       .from('comments')
@@ -834,12 +805,130 @@ const DashboardPage = () => {
     }
   };
 
+  const waitForElement = (selector, timeout = 5000) => {
+    return new Promise((resolve, reject) => {
+      const interval = 100;
+      let elapsed = 0;
+  
+      const checkExist = () => {
+        const element = document.querySelector(selector);
+        if (element) {
+          resolve(element);
+        } else {
+          elapsed += interval;
+          if (elapsed >= timeout) {
+            reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+          } else {
+            setTimeout(checkExist, interval);
+          }
+        }
+      };
+  
+      checkExist();
+    });
+  };
+
+  const getElementFromXPath = (xpath) => {
+    const textLayer = document.querySelector(".text-layer");
+    if (!textLayer) return null;
+  
+    const result = document.evaluate(
+      xpath,
+      textLayer, // Scoped to the rendered text
+      null,
+      XPathResult.FIRST_ORDERED_NODE_TYPE,
+      null
+    );
+  
+    return result.singleNodeValue;
+  };
+ 
+  function highlightCommentedText(comment) {
+    if (!comment || !comment.selection_range) {
+      console.warn('Invalid comment object:', comment);
+      return;
+    }
+  
+    const { startPath, startOffset, endPath, endOffset } = comment.selection_range;
+  
+    const startNode = getElementFromXPath(startPath);
+    const endNode = getElementFromXPath(endPath);
+  
+    if (!startNode || !endNode) {
+      console.warn('Could not resolve nodes for paths:', startPath, endPath);
+      return;
+    }
+  
+    if (startNode.nodeType !== Node.TEXT_NODE || endNode.nodeType !== Node.TEXT_NODE) {
+      console.warn('Start or end node is not a text node.');
+      return;
+    }
+  
+    if (startOffset > startNode.length || endOffset > endNode.length) {
+      console.warn('Offset out of bounds:', {
+        startOffset,
+        startNodeLength: startNode.length,
+        endOffset,
+        endNodeLength: endNode.length
+      });
+      return;
+    }
+  
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+  
+    // Get the PDF canvas and its position
+    const pdfCanvas = pdfCanvasRef.current;
+    const pdfRect = pdfCanvas.getBoundingClientRect();
+    const textLayer = document.querySelector('.text-layer');
+  
+    // Highlight using absolute positioning relative to the PDF canvas
+    const rects = Array.from(range.getClientRects());
+    const container = document.querySelector('.annotation-container');
+  
+    rects.forEach(rect => {
+      // Calculate position relative to the PDF canvas
+      const highlight = document.createElement('div');
+      highlight.className = 'text-highlight-overlay';
+      highlight.style.position = 'absolute';
+      highlight.style.left = `${rect.left - pdfRect.left}px`;
+      highlight.style.top = `${rect.top - pdfRect.top}px`;
+      highlight.style.width = `${rect.width}px`;
+      highlight.style.height = `${rect.height}px`;
+      highlight.style.backgroundColor = 'rgba(255, 255, 0, 0.4)';
+      highlight.style.pointerEvents = 'none';
+      highlight.style.zIndex = '10';
+      highlight.dataset.commentId = comment.id;
+  
+      container?.appendChild(highlight);
+    });
+  }
+  
+  useEffect(() => {
+    if (!selectedFile || !pdfCanvasRef.current) return;
+  
+    const highlightAfterRender = () => {
+      // Clear existing highlights first
+      document.querySelectorAll('.text-highlight-overlay').forEach(el => el.remove());
+  
+      if (comments.length > 0) {
+        const checkTextLayer = () => {
+          const textLayer = document.querySelector('.text-layer');
+          if (textLayer) {
+            comments.forEach(comment => highlightCommentedText(comment));
+          } else {
+            setTimeout(checkTextLayer, 100);
+          }
+        };
+        checkTextLayer();
+      }
+    };
+  
+    highlightAfterRender();
+  }, [selectedFile, comments]);
   
   
-
-
-
-  //   
   return (
     <div className="dashboard-page">
       {userId ? (
@@ -855,7 +944,9 @@ const DashboardPage = () => {
               <h3>Your Uploaded Files</h3>
               <ul>
                 {media.map((file, index) => (
-                  <li key={index} onClick={() => setSelectedFile(file)}>
+                  <li key={index} onClick={() => setSelectedFile(file)}
+                  className={selectedFile?.id === file.id ? 'selected' : ''}
+                  >
                     {file.name}
                   </li>
                 ))}
@@ -875,38 +966,6 @@ const DashboardPage = () => {
                   </div>
                 </div>
               )}
-            </div>
-            <div className="comment-sidebar">
-              <h3>Comments</h3>
-              
-              {comments.map(comment => (
-                <div key={comment.id} className="comment-item">
-                  <div className="comment-text">{comment.text}</div>
-                  <small>{new Date(comment.created_at).toLocaleString()}</small>
-                  <div className="comment-actions">
-                    <button onClick={() => setSelectedComment(comment)}>View</button>
-                    <button onClick={() => deleteComment(comment.id)}>Delete</button>
-                  </div>
-                </div>
-              ))}
-              
-              {selectedComment && (
-                <div className="comment-input">
-                  <h4>Selected Comment</h4>
-                  <p>{selectedComment.text}</p>
-                  <button onClick={() => setSelectedComment(null)}>Close</button>
-                </div>
-              )}
-              
-              <div className="comment-input">
-                <h4>Add Comment</h4>
-                <textarea 
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Type your comment..."
-                />
-                <button onClick={saveComment}>Save Comment</button>
-              </div>
             </div>
             {/* Controls Sidebar */}
             <div className="controls-sidebar">
@@ -1012,21 +1071,48 @@ const DashboardPage = () => {
               </div>
   
               {/* Comments List */}
-              <div className="comments-section">
-                <h4>Comments</h4>
-                <div className="comments-list">
-                  {comments.map(comment => (
-                    <div key={comment.id} className="comment">
-                      <div className="comment-text">{comment.text}</div>
-                      <div className="comment-context">"{comment.selected_text}"</div>
-                      <button 
-                        className="delete-comment"
-                        onClick={() => deleteComment(comment.id)}
-                      >
-                        Delete
-                      </button>
+              <div className="comment-sidebar">
+                <h3>Comments</h3>
+                
+                {comments.map(comment => (
+                  <div key={comment.id} className="comment-item">
+                    <div className="comment-text">{comment.content}</div>
+                    <small>{new Date(comment.created_at).toLocaleString()}</small>
+                    <div className="comment-actions">
+                      <button onClick={() => {
+                        setSelectedComment(comment);
+                        // Scroll to and temporarily highlight the text
+                        const highlight = document.querySelector(`[data-comment-id="${comment.id}"]`);
+                        if (highlight) {
+                          highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          const originalBg = highlight.style.backgroundColor;
+                          highlight.style.backgroundColor = 'rgba(255, 235, 59, 0.6)';
+                          setTimeout(() => {
+                            highlight.style.backgroundColor = originalBg || 'rgba(255, 248, 197, 0.7)';
+                          }, 1500);
+                        }
+                      }}>View</button>
+                      <button onClick={() => deleteComment(comment.id)}>Delete</button>
                     </div>
-                  ))}
+                  </div>
+                ))}
+                
+                {selectedComment && (
+                  <div className="comment-input">
+                    <h4>Selected Comment</h4>
+                    <p>{selectedComment.content}</p> {/* Changed from text to content to match your data */}
+                    <button onClick={() => setSelectedComment(null)}>Close</button>
+                  </div>
+                )}
+                
+                <div className="comment-input">
+                  <h4>Add Comment</h4>
+                  <textarea 
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Type your comment..."
+                  />
+                  <button onClick={saveComment}>Save Comment</button>
                 </div>
               </div>
   

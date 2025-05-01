@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import SignInPage from './SignIn'
 import SignUpPage from './SignUp';
 import DashboardPage from './NewDashBoard';
+import FileManager from './FileManager';
 
 
 
@@ -18,6 +19,7 @@ function App() {
         <Route path="/SignIn" element={<SignInPage />} />  {/* Use element instead of component */}
         <Route path="/SignUp" element={<SignUpPage />} />  {/* Use element instead of component */}
         <Route path="/NewDashBoard" element={<DashboardPage />} />
+        <Route path="/FileManager" element={<FileManager />} />
       </Routes>
     </Router>
   );

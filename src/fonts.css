@@ -1,0 +1,21 @@
+/* Standard font (default PDF font) */
+ /* Lexend (from Google Fonts) */
+ @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;700&display=swap');
+  
+  /* OpenDyslexic */
+  @font-face {
+    font-family: 'OpenDyslexic';
+    src: url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.3/fonts/OpenDyslexic-Regular.woff') format('woff');
+  }
+  
+  
+  /* Comic Sans */
+  /* @font-face {
+    font-family: ;
+  } */
+
+  /* Standard font (default PDF font) */
+  /* @font-face {
+    font-family: 'PDFStandard';
+    src: local('Times New Roman');
+  } */

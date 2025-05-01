@@ -18,7 +18,7 @@ const SignInPage = () => {
       alert("Please fill in both email and password!");
     }
 
-    // 🔹 Authenticate user with Supabase
+    //Authenticate user with Supabase
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -28,7 +28,7 @@ const SignInPage = () => {
       setErrorMessage(error.message);
     } else {
       alert("Signed in successfully!");
-      navigate('/NewDashBoard');  // Redirect to dashboard (change this as needed)
+      navigate('/FileManager');  // Redirect to dashboard (change this as needed)
     }
   };
 

@@ -1,4 +1,5 @@
-//COMMENTS CORRECTLY HIGHLIGHTS,DELETE,CONNECTS TO SUPABASE,REAPPEARS
+
+//BASIC TTS, WITH FILES ON SEPERATE PAGE NOW
 import { v4 as uuidv4 } from 'uuid';
 import * as fabric from 'fabric';
 import supabase from '../src/supabaseClient';
@@ -9,6 +10,7 @@ import Tesseract from 'tesseract.js';
 import './Dashboard.css';
 import { useState, useEffect, useRef } from 'react';
 import { FaComment, FaTimes } from 'react-icons/fa';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
@@ -36,16 +38,48 @@ const DashboardPage = () => {
   const [selectedComment, setSelectedComment] = useState(null);
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [tempSelectionRange, setTempSelectionRange] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const passedFile = location.state?.file;
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const recognitionRef = useRef(null);
 
   
 
-  useEffect(() => {
-    getUser();
-  }, []);
+  // useEffect(() => {
+  //   getUser();
+  // }, []);
 
+  // useEffect(() => {
+  //   if (userId){
+  //     getMedia();
+
+  //         // Check for passed file after userId is available
+  //     if (passedFile) {
+  //     setSelectedFile(passedFile);
+  //     }
+  //   }
+  // }, [userId]);
+
+  // Single useEffect for initialization
   useEffect(() => {
-    if (userId) getMedia();
-  }, [userId]);
+    const initialize = async () => {
+      await getUser();
+      
+      // If no file was passed, redirect back to file manager
+      if (!passedFile) {
+        navigate('/file-manager');
+        return;
+      }
+      
+      // Set the selected file and load media
+      setSelectedFile(passedFile);
+      await getMedia();
+    };
+
+    initialize();
+  }, []);
 
   useEffect(() => {
     const synth = window.speechSynthesis;
@@ -475,16 +509,21 @@ const DashboardPage = () => {
     }
   };
 
+  //FIXED HIGHLIGHTS WHEN SWUTCHING FILES
   const renderPDF = async (pdfUrl) => {
     try {
+      // Clear existing highlights
+      currentHighlights.current.forEach(h => fabricCanvas.current?.remove(h));
+      currentHighlights.current = [];
+      
       const pdf = await pdfjsLib.getDocument({ url: pdfUrl }).promise;
       const page = await pdf.getPage(1);
       const scale = 1.5;
       const viewport = page.getViewport({ scale });
   
+      // Reset canvases
       const canvas = pdfCanvasRef.current;
       const context = canvas.getContext("2d");
-  
       canvas.width = viewport.width;
       canvas.height = viewport.height;
   
@@ -493,12 +532,12 @@ const DashboardPage = () => {
   
       await page.render({ canvasContext: context, viewport }).promise;
   
-      initCanvas(); // Respects current annotationCanvas size
-      await createTextLayer(page, viewport, scale); // Pass scale directly
-      // Wait a little before loading annotations
-      setTimeout(() => {
-        loadAnnotations();
-      }, 0);
+      // Reinitialize everything
+      initCanvas();
+      await createTextLayer(page, viewport, scale);
+      loadAnnotations();
+      fetchComments();
+  
     } catch (error) {
       console.error("Error rendering PDF:", error);
     }
@@ -927,8 +966,67 @@ const DashboardPage = () => {
   
     highlightAfterRender();
   }, [selectedFile, comments]);
-  
-  
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        
+        recognitionRef.current.onresult = (event) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          
+          setTranscript(finalTranscript || interimTranscript);
+        };
+        
+        recognitionRef.current.onerror = (event) => {
+          console.error('Speech recognition error', event.error);
+          setIsListening(false);
+        };
+      }
+    }
+    
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      
+      // When stopping, use the transcript to create a comment
+      if (transcript.trim()) {
+        setNewComment(transcript);
+        setTranscript(""); // Clear transcript for next use
+      }
+    } else {
+      setTranscript(""); // Clear previous transcript
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const handleSaveAndReset = async () => {
+    await saveComment();  // Your existing save function
+    setTranscript("");    // This clears the "Voice input" preview
+  };
+    
   return (
     <div className="dashboard-page">
       {userId ? (
@@ -1110,9 +1208,20 @@ const DashboardPage = () => {
                   <textarea 
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Type your comment..."
+                    placeholder="Type your comment or use voice..."
                   />
-                  <button onClick={saveComment}>Save Comment</button>
+                  <button 
+                    onClick={toggleListening} 
+                    className={`mic-button ${isListening ? 'active' : ''}`}
+                  >
+                    {isListening ? 'Stop Listening' : 'Start Voice Input'}
+                  </button>
+                  {transcript && (
+                    <div className="transcript-preview">
+                      <p>Voice input: {transcript}</p>
+                    </div>
+                  )}
+                  <button onClick={handleSaveAndReset}>Save Comment</button>
                 </div>
               </div>
   
@@ -1135,6 +1244,14 @@ const DashboardPage = () => {
           <div className="sign-out">
             <button onClick={signOut}>Logout</button>
           </div>
+          <div className="file-manager">
+          <button 
+            onClick={() => navigate('/FileManager')}
+            className="change-file-button"
+          >
+            Select Different File
+          </button>
+          </div>
         </>
       ) : (
         <Auth supabaseClient={supabase} appearance={{ theme: ThemeSupa }} />
@@ -1144,3 +1261,5 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+
+

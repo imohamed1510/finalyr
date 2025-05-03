@@ -15,13 +15,11 @@
     position: relative;
 }
 
+
 .annotation-container {
     position: relative;
-    /* Container for absolute positioning */
     width: 100%;
-    /* Adjust as needed */
     height: 100%;
-    /* Adjust as needed */
 } 
 
 .pdf-canvas {
@@ -37,7 +35,8 @@
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 2;
+    z-index: 3; 
+    /* changed from 3/2 */
     /* Higher z-index for the annotation canvas */
     pointer-events: auto;
     /* Allow interactions with the annotation canvas */
@@ -51,10 +50,21 @@
     /* Allow text selection */
     user-select: text;
     /* Allow text selection */
-    z-index: 3;
+    z-index: 2;
     /* Ensure the text layer is above the canvas */
+    transform: matrix(1, 0, 0, 1, 0, 0); /* Ensure no transformation */
+} 
+
+.text-highlight-overlay {
+  position: absolute;
+  z-index: 4; /* Highlights above everything */
+  pointer-events: none;
 }
 
+.text-layer div {
+  transform: none !important;
+  background-color: white;
+} 
 
 
 .upload-section {
@@ -164,4 +174,3 @@
   position: relative;
   z-index: 4;
 }
-

@@ -1,5 +1,4 @@
 
-//BASIC TTS, WITH FILES ON SEPERATE PAGE NOW
 import { v4 as uuidv4 } from 'uuid';
 import * as fabric from 'fabric';
 import supabase from '../src/supabaseClient';
@@ -7,10 +6,15 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import * as pdfjsLib from 'pdfjs-dist';
 import Tesseract from 'tesseract.js';
-import './Dashboard.css';
+import './NewDashboard.css';
 import { useState, useEffect, useRef } from 'react';
 import { FaComment, FaTimes } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
+import './fonts.css'
+import { FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+
+
+
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
@@ -44,6 +48,13 @@ const DashboardPage = () => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const recognitionRef = useRef(null);
+  const [selectedFont, setSelectedFont] = useState('standard');
+  const [textColorTheme, setTextColorTheme] = useState('default');
+  const [fontSizeMultiplier, setFontSizeMultiplier] = useState(1);
+  const [showTextOverlay, setShowTextOverlay] = useState(false);
+  const isDrawingModeRef = useRef(isDrawingMode);
+  const annotationContainerRef = useRef(null);
+
 
   
 
@@ -193,8 +204,10 @@ const DashboardPage = () => {
       }
 
       fabricCanvas.current = new fabric.Canvas(annotationCanvasRef.current, {
-        isDrawingMode: true,
+        isDrawingMode: isDrawingMode, //chnaged from true
         selection: false,
+        preserveObjectStacking: true, // Keep annotations visible
+        backgroundColor: 'transparent', // Show through to PDF
         width: annotationCanvasRef.current.width,
         height: annotationCanvasRef.current.height,
       });
@@ -240,6 +253,7 @@ const DashboardPage = () => {
       return;
     }
 
+    
     fabricCanvas.current.clear();
 
     if (data.length > 0) {
@@ -509,17 +523,24 @@ const DashboardPage = () => {
     }
   };
 
-  //FIXED HIGHLIGHTS WHEN SWUTCHING FILES
   const renderPDF = async (pdfUrl) => {
     try {
-      // Clear existing highlights
+      // Clear existing highlights and annotations
       currentHighlights.current.forEach(h => fabricCanvas.current?.remove(h));
       currentHighlights.current = [];
       
+      // Cancel any ongoing PDF rendering
+      if (pdfCanvasRef.current?._pdfPage) {
+        pdfCanvasRef.current._pdfPage.cleanup();
+      }
+  
       const pdf = await pdfjsLib.getDocument({ url: pdfUrl }).promise;
       const page = await pdf.getPage(1);
       const scale = 1.5;
       const viewport = page.getViewport({ scale });
+  
+      // Store the page reference for cleanup
+      pdfCanvasRef.current._pdfPage = page;
   
       // Reset canvases
       const canvas = pdfCanvasRef.current;
@@ -530,7 +551,17 @@ const DashboardPage = () => {
       annotationCanvasRef.current.width = viewport.width;
       annotationCanvasRef.current.height = viewport.height;
   
-      await page.render({ canvasContext: context, viewport }).promise;
+      // Render the page with cleanup handler
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      };
+  
+      await page.render(renderContext).promise.then(() => {
+        console.log('Page rendered successfully');
+      }).catch(err => {
+        console.log('Rendering cancelled:', err);
+      });
   
       // Reinitialize everything
       initCanvas();
@@ -538,26 +569,177 @@ const DashboardPage = () => {
       loadAnnotations();
       fetchComments();
   
+      if (fabricCanvas.current) {
+        fabricCanvas.current.renderAll();
+      }
+  
     } catch (error) {
       console.error("Error rendering PDF:", error);
+      // Handle specific rendering errors
+      if (error.message.includes('multiple render() operations')) {
+        console.warn('Rendering conflict detected - retrying...');
+        setTimeout(() => renderPDF(pdfUrl), 100);
+      }
     }
   };
+
+  // // //FIXED HIGHLIGHTS WHEN SWUTCHING FILES
+  // const renderPDF = async (pdfUrl) => {
+  //   try {
+  //     // Clear existing highlights
+  //     currentHighlights.current.forEach(h => fabricCanvas.current?.remove(h));
+  //     currentHighlights.current = [];
+      
+  //     const pdf = await pdfjsLib.getDocument({ url: pdfUrl }).promise;
+  //     const page = await pdf.getPage(1);
+  //     const scale = 1.5;
+  //     const viewport = page.getViewport({ scale });
+  
+  //     // Reset canvases
+  //     const canvas = pdfCanvasRef.current;
+  //     const context = canvas.getContext("2d");
+  //     canvas.width = viewport.width;
+  //     canvas.height = viewport.height;
+  
+  //     annotationCanvasRef.current.width = viewport.width;
+  //     annotationCanvasRef.current.height = viewport.height;
+  
+  //     await page.render({ canvasContext: context, viewport }).promise;
+  
+  //     // Reinitialize everything
+  //     initCanvas();
+  //     await createTextLayer(page, viewport, scale);
+  //     loadAnnotations();
+  //     fetchComments();
+
+  //     if (fabricCanvas.current) {
+  //       fabricCanvas.current.renderAll();
+  //     }
+  
+  //   } catch (error) {
+  //     console.error("Error rendering PDF:", error);
+  //   }
+  // };
+
+  
+
+  // const createTextLayer = async (page, viewport, scale) => {
+  //   const textContent = await page.getTextContent();
+  //   let textLayer = document.querySelector(".text-layer");
+  
+  //   if (textLayer) textLayer.remove(); // Remove old layer if exists
+  
+  //   textLayer = document.createElement("div");
+  //   textLayer.className = "text-layer";
+  //   textLayer.style.position = "absolute";
+  //   textLayer.style.top = "0";
+  //   textLayer.style.left = "0";
+  //   textLayer.style.width = `${viewport.width}px`;
+  //   textLayer.style.height = `${viewport.height}px`;
+  //   textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";
+  //   textLayer.style.userSelect = isDrawingMode ? "none" : "text";
+  
+  //   textContent.items.forEach((item) => {
+  //     const textDiv = document.createElement("div");
+  //     const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
+  
+  //     textDiv.textContent = item.str;
+  //     textDiv.style.position = "absolute";
+  //     textDiv.style.left = `${x}px`;
+  //     textDiv.style.top = `${y - item.height * scale}px`;
+  //     textDiv.style.fontSize = `${item.height * scale}px`;
+  //     textDiv.style.color = "transparent";
+  //     textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto";
+  
+  //     textLayer.appendChild(textDiv);
+  //   });
+  
+  //   textLayer.addEventListener("mouseup", handleTextSelection);
+  
+  //   const container = document.querySelector(".annotation-container");
+  //   if (container) container.appendChild(textLayer);
+  // };
+
+
+  //THIS ONE WORKS!!JUST NEED TO FIX MAKING HIHGLIHGTS AND ANNOTATIONS APPEAR IN CSS 
+  // const createTextLayer = async (page, viewport, scale) => {
+  //   const textContent = await page.getTextContent();
+  //   let textLayer = document.querySelector(".text-layer");
+  
+  //   if (textLayer) textLayer.remove();
+  
+  //   textLayer = document.createElement("div");
+  //   textLayer.className = "text-layer";
+  //   textLayer.style.position = "absolute";
+  //   textLayer.style.left = "0";
+  //   textLayer.style.top = "0";
+  //   textLayer.style.width = `${viewport.width}px`;
+  //   textLayer.style.height = `${viewport.height}px`;
+  //   textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";
+  //   textLayer.style.userSelect = isDrawingMode ? "none" : "text";
+    
+  //   // Add this to cover the original text
+  //   textLayer.style.backgroundColor = "white";
+  //   textLayer.style.opacity = "0.99"; // Slightly less than 1 to ensure proper compositing
+  
+  //   // Font handling
+  //   const fontFamily = selectedFont === 'opendyslexic' 
+  //     ? 'OpenDyslexic, sans-serif'
+  //     : selectedFont === 'lexend'
+  //       ? 'Lexend, sans-serif'
+  //       : 'Times New Roman, serif';
+  
+  //   textContent.items.forEach((item) => {
+  //     const textDiv = document.createElement("div");
+  //     const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
+  
+  //     textDiv.textContent = item.str;
+  //     textDiv.style.position = "absolute";
+  //     textDiv.style.left = `${x}px`;
+  //     textDiv.style.top = `${y - item.height * scale}px`;      ;
+  //     textDiv.style.fontSize = `${item.height * scale}px`;
+  //     textDiv.style.fontFamily = fontFamily;
+  //     textDiv.style.color = "black"; // Changed from transparent to opaque
+  //     textDiv.style.lineHeight = "1"; // Ensure consistent line height
+  //     textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto";
+  
+  //     textLayer.appendChild(textDiv);
+  //   });
+  
+  //   textLayer.addEventListener("mouseup", handleTextSelection);
+  //   const container = document.querySelector(".annotation-container");
+  //   if (container) container.appendChild(textLayer);
+  // };
 
   const createTextLayer = async (page, viewport, scale) => {
     const textContent = await page.getTextContent();
     let textLayer = document.querySelector(".text-layer");
   
-    if (textLayer) textLayer.remove(); // Remove old layer if exists
+    if (textLayer) textLayer.remove();
   
     textLayer = document.createElement("div");
     textLayer.className = "text-layer";
     textLayer.style.position = "absolute";
-    textLayer.style.top = "0";
     textLayer.style.left = "0";
+    textLayer.style.top = "0";
     textLayer.style.width = `${viewport.width}px`;
     textLayer.style.height = `${viewport.height}px`;
-    textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";
-    textLayer.style.userSelect = isDrawingMode ? "none" : "text";
+    textLayer.style.zIndex = "2"; // Between PDF and annotations
+  
+    // Always set the background to white
+    textLayer.style.backgroundColor = "white";
+    textLayer.style.opacity = "0.99";  // Slightly less than 1 to ensure compositing works properly
+  
+    // Allow text selection when drawing mode is off
+    textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";  // Allow interaction only when not drawing
+    textLayer.style.userSelect = isDrawingMode ? "none" : "text"; //Just added
+
+    // Font handling
+    const fontFamily = selectedFont === 'opendyslexic' 
+      ? 'OpenDyslexic, sans-serif'
+      : selectedFont === 'lexend'
+        ? 'Lexend, sans-serif'
+        : 'Times New Roman, serif';
   
     textContent.items.forEach((item) => {
       const textDiv = document.createElement("div");
@@ -568,16 +750,124 @@ const DashboardPage = () => {
       textDiv.style.left = `${x}px`;
       textDiv.style.top = `${y - item.height * scale}px`;
       textDiv.style.fontSize = `${item.height * scale}px`;
-      textDiv.style.color = "transparent";
-      textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto";
+      textDiv.style.fontFamily = fontFamily;
+      textDiv.style.color = "black"; // Text color
+      textDiv.style.lineHeight = "1"; // Ensure consistent line height
+  
+      // Ensure text is selectable when drawing mode is off
+      textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto"; 
   
       textLayer.appendChild(textDiv);
     });
   
+    // Attach the event listener for text selection
     textLayer.addEventListener("mouseup", handleTextSelection);
+
+    //USED THE REF HERE
+    if (annotationContainerRef.current) {
+      annotationContainerRef.current.appendChild(textLayer);
+    } else {
+      console.warn("annotationContainerRef is null");
+    }
   
-    const container = document.querySelector(".annotation-container");
-    if (container) container.appendChild(textLayer);
+    // const container = document.querySelector(".annotation-container");
+    // if (container) container.appendChild(textLayer);
+  };
+
+  // const toggleDrawingMode = () => {
+  //   setIsDrawingMode(prev => {
+  //     const newMode = !prev;
+      
+  //     if (fabricCanvas.current) {
+  //       // Always keep annotations visible
+  //       fabricCanvas.current.forEachObject(obj => {
+  //         obj.selectable = false; // Keep objects non-selectable
+  //         obj.evented = false;    // Disable interaction when not in drawing mode
+  //       });
+        
+  //       // Only enable drawing when toggled on
+  //       fabricCanvas.current.isDrawingMode = newMode;
+        
+  //       // Update text layer behavior
+  //       const textLayer = document.querySelector(".text-layer");
+  //       if (textLayer) {
+  //         textLayer.style.pointerEvents = newMode ? "none" : "auto";
+  //         textLayer.style.userSelect = newMode ? "none" : "text";
+  //       }
+  //     }
+      
+  //     return newMode;
+  //   });
+  // };
+
+  const toggleDrawingMode = () => {
+    setIsDrawingMode(prevMode => {
+      const newMode = !prevMode;
+      
+      // Update Fabric.js canvas
+      if (fabricCanvas.current) {
+        fabricCanvas.current.isDrawingMode = newMode;
+        fabricCanvas.current.selection = !newMode;
+        
+        // Set all objects as non-interactive in drawing mode
+        fabricCanvas.current.forEachObject(obj => {
+          obj.selectable = !newMode;
+          obj.evented = !newMode;
+        });
+      }
+  
+      // Update text layer interactivity
+      const textLayer = document.querySelector(".text-layer");
+      if (textLayer) {
+        textLayer.style.pointerEvents = newMode ? "none" : "auto";
+        textLayer.style.userSelect = newMode ? "none" : "text";
+        
+        // Force style recalculation
+        textLayer.style.display = 'none';
+        textLayer.offsetHeight; // Trigger reflow
+        textLayer.style.display = 'block';
+      }
+  
+      return newMode;
+    });
+  };
+
+  useEffect(() => {
+    const updateFonts = async () => {
+      if (!selectedFile) return;
+      
+      // Preload font before rendering
+      const fontFamily = selectedFont === 'opendyslexic' ? 'OpenDyslexic' :
+                        selectedFont === 'lexend' ? 'Lexend' : null;
+      
+      if (fontFamily) {
+        await document.fonts.load(`12px ${fontFamily}`);
+      }
+      
+      renderPDF(selectedFile.url);
+    };
+    
+    updateFonts();
+  }, [selectedFont]);
+  
+
+  const applyTheme = (element) => {
+    element.className = `text-layer ${selectedFont} ${textColorTheme}`;
+    switch(textColorTheme) {
+      case 'high-contrast':
+        element.style.backgroundColor = '#f0f0f0';
+        break;
+      case 'sepia':
+        element.style.backgroundColor = '#f4ecd8';
+        break;
+      case 'dark':
+        element.style.backgroundColor = '#222';
+        element.style.color = '#eee';
+        break;
+      default:
+        element.style.backgroundColor = '';
+        element.style.color = 'transparent';
+    }
   };
   
   const getXPathForElement = (element) => {
@@ -1026,240 +1316,363 @@ const DashboardPage = () => {
     await saveComment();  // Your existing save function
     setTranscript("");    // This clears the "Voice input" preview
   };
-    
+
+  //THE EXPORT WORKS BUT I NEED TO FIX DISPLAYING OF THE PAGES
+  const exportPDFWithAnnotations = async () => {
+    if (!selectedFile || !pdfCanvasRef.current || !annotationCanvasRef.current) {
+      console.error("No file selected or canvas missing");
+      return;
+    }
+  
+    try {
+      const { PDFDocument, rgb } = await import('pdf-lib');
+      
+      // Use browser's native fetch instead of node-fetch
+      const existingPdfBytes = await fetch(selectedFile.url)
+        .then(res => res.arrayBuffer());
+      
+      // Rest of your code remains the same...
+      const pdfDoc = await PDFDocument.load(existingPdfBytes);
+      const annotationCanvas = annotationCanvasRef.current;
+      const annotationImageBytes = await new Promise(resolve => {
+        annotationCanvas.toBlob(blob => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(new Uint8Array(reader.result));
+          reader.readAsArrayBuffer(blob);
+        }, 'image/png');
+      });
+      
+      // Embed the annotation image
+      const annotationImage = await pdfDoc.embedPng(annotationImageBytes);
+      
+      // Add annotations to each page
+      const pages = pdfDoc.getPages();
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const { width, height } = page.getSize();
+        
+        // Draw annotation image over the page
+        page.drawImage(annotationImage, {
+          x: 0,
+          y: 0,
+          width,
+          height,
+          opacity: 0.7,
+        });
+      }
+      
+      // Save the modified PDF
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${selectedFile.name.replace('.pdf', '')}_annotated.pdf`;
+      link.click();
+      
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      alert("Failed to export PDF. Please try again.");
+    }
+  };
+
   return (
-    <div className="dashboard-page">
+    <div className="dashboard-container">
       {userId ? (
         <>
-          {/* Header Section */}
-          <div className="header-section">
-            <div className="upload-section" onDrop={handleDrop} onDragOver={handleDragOver}>
-              <input type="file" onChange={handleFileSelect} accept="application/pdf" />
-              <p>Drag & drop a PDF file here or click to upload</p>
+          <div className="dashboard-header">
+            <div className="header-left">
+              <h2>
+                <i className="fas fa-file-pdf"></i> {selectedFile?.name || 'PDF Viewer'}
+              </h2>
             </div>
-  
-            <div className="file-list">
-              <h3>Your Uploaded Files</h3>
-              <ul>
-                {media.map((file, index) => (
-                  <li key={index} onClick={() => setSelectedFile(file)}
-                  className={selectedFile?.id === file.id ? 'selected' : ''}
-                  >
-                    {file.name}
-                  </li>
-                ))}
-              </ul>
+            <div className="header-right">
+              <button 
+                onClick={() => navigate('/FileManager')}
+                className="btn btn-outline"
+              >
+                <i className="fas fa-folder-open"></i> File Manager
+              </button>
+              <button 
+                onClick={signOut}
+                className="btn btn-logout"
+              >
+                <i className="fas fa-sign-out-alt"></i> Logout
+              </button>
             </div>
           </div>
-  
-          {/* Main Content Area */}
-          <div className="main-content">
-            {/* PDF Viewer */}
-            <div className="viewer-container">
+
+          <div className="dashboard-main">
+            <div className="pdf-viewer-container">
               {selectedFile && selectedFile.type === "application/pdf" && (
-                <div className="viewer">
-                  <div className="annotation-container">
+                <div className="pdf-viewer">
+                  <div className="annotation-container" ref={annotationContainerRef}>
                     <canvas ref={pdfCanvasRef} className="pdf-canvas"></canvas>
                     <canvas ref={annotationCanvasRef} className="annotation-canvas"></canvas>
                   </div>
                 </div>
               )}
             </div>
-            {/* Controls Sidebar */}
-            <div className="controls-sidebar">
-              <div className="control-group">
-                <button
-                  onClick={() => {
-                    const selection = window.getSelection();
-                    if (selection && selection.toString().trim()) {
-                      const range = selection.getRangeAt(0);
-                      const rect = range.getBoundingClientRect();
-                      const canvasRect = pdfCanvasRef.current.getBoundingClientRect();
-                      
-                      setCommentPosition({
-                        x: rect.right - canvasRect.left + 10,
-                        y: rect.top - canvasRect.top
-                      });
-                      setShowCommentInput(true);
-                    } else {
-                      alert("Please select text to comment on");
-                    }
-                  }}
-                  className="control-button"
-                >
-                  Add Comment
-                </button>
-  
-                <button
-                  onClick={() => {
-                    setIsDrawingMode(prev => {
-                      const newMode = !prev;
-                      if (fabricCanvas.current) {
-                        fabricCanvas.current.isDrawingMode = newMode;
-                        fabricCanvas.current.selection = !newMode;
-                        
-                        const textLayer = document.querySelector(".text-layer");
-                        if (textLayer) {
-                          textLayer.style.pointerEvents = newMode ? "none" : "auto";
-                          textLayer.style.userSelect = newMode ? "none" : "text";
-                        }
+
+            <div className="control-panel">
+              <div className="panel-section">
+                <h3><i className="fas fa-tools"></i> Tools</h3>
+                <div className="button-group">
+                  <button
+                    onClick={() => {
+                      const selection = window.getSelection();
+                      if (selection && selection.toString().trim()) {
+                        setShowCommentInput(true);
+                      } else {
+                        alert("Please select text to comment on");
                       }
-                      return newMode;
-                    });
-                  }}
-                  className="control-button"
-                >
-                  {isDrawingMode ? "Disable Drawing" : "Enable Drawing"}
-                </button>
-                
-                <button className="control-button" onClick={handleTTS}>
-                  Read PDF Aloud
-                </button>
-              </div>
-  
-              <div className="control-group">
-                <button 
-                  className="control-button" 
-                  onClick={togglePauseResume} 
-                  disabled={!utterance}
-                >
-                  {isPlaying ? "Pause" : "Resume"}
-                </button>
-                
-                <button 
-                  className="control-button" 
-                  onClick={restartTTS} 
-                  disabled={!utterance}
-                >
-                  Restart
-                </button>
-              </div>
-  
-              <div className="control-group">
-                <label>
-                  Select Voice:
-                  <select
-                    value={selectedVoice ? selectedVoice.name : ''}
-                    onChange={(e) => {
-                      const selected = voices.find(voice => voice.name === e.target.value);
-                      setSelectedVoice(selected);
                     }}
+                    className="btn btn-primary"
                   >
-                    {voices.map((voice, index) => (
-                      <option key={index} value={voice.name}>
-                        {voice.name} ({voice.lang})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-  
-              <div className="control-group">
-                <label>
-                  Select Speed:
-                  <input
-                    type="number"
-                    min="0.5"
-                    max="2"
-                    step="0.1"
-                    value={speed}
-                    onChange={(e) => updateSpeed(parseFloat(e.target.value))}
-                  />
-                </label>
-              </div>
-  
-              {/* Comments List */}
-              <div className="comment-sidebar">
-                <h3>Comments</h3>
-                
-                {comments.map(comment => (
-                  <div key={comment.id} className="comment-item">
-                    <div className="comment-text">{comment.content}</div>
-                    <small>{new Date(comment.created_at).toLocaleString()}</small>
-                    <div className="comment-actions">
-                      <button onClick={() => {
-                        setSelectedComment(comment);
-                        // Scroll to and temporarily highlight the text
-                        const highlight = document.querySelector(`[data-comment-id="${comment.id}"]`);
-                        if (highlight) {
-                          highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          const originalBg = highlight.style.backgroundColor;
-                          highlight.style.backgroundColor = 'rgba(255, 235, 59, 0.6)';
-                          setTimeout(() => {
-                            highlight.style.backgroundColor = originalBg || 'rgba(255, 248, 197, 0.7)';
-                          }, 1500);
-                        }
-                      }}>View</button>
-                      <button onClick={() => deleteComment(comment.id)}>Delete</button>
-                    </div>
-                  </div>
-                ))}
-                
-                {selectedComment && (
-                  <div className="comment-input">
-                    <h4>Selected Comment</h4>
-                    <p>{selectedComment.content}</p> {/* Changed from text to content to match your data */}
-                    <button onClick={() => setSelectedComment(null)}>Close</button>
-                  </div>
-                )}
-                
-                <div className="comment-input">
-                  <h4>Add Comment</h4>
-                  <textarea 
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Type your comment or use voice..."
-                  />
-                  <button 
-                    onClick={toggleListening} 
-                    className={`mic-button ${isListening ? 'active' : ''}`}
-                  >
-                    {isListening ? 'Stop Listening' : 'Start Voice Input'}
+                    <i className="fas fa-comment"></i> Add Comment
                   </button>
+                  <button
+                  onClick={() => toggleDrawingMode()} // Make sure this matches your function name
+                  className={`btn ${isDrawingMode ? 'btn-warning' : 'btn-secondary'}`}
+                >
+                  <i className="fas fa-pencil-alt"></i> 
+                  {isDrawingMode ? "Drawing Mode ON" : "Drawing Mode"}
+                </button>
+                  {/* <button
+                    onClick={() => {
+                      setIsDrawingMode(prev => {
+                        const newMode = !prev;
+                        if (fabricCanvas.current) {
+                          fabricCanvas.current.isDrawingMode = newMode;
+                          fabricCanvas.current.selection = !newMode;
+                          
+                          const textLayer = document.querySelector(".text-layer");
+                          if (textLayer) {
+                            textLayer.style.pointerEvents = newMode ? "none" : "auto";
+                            textLayer.style.userSelect = newMode ? "none" : "text";
+                          }
+                        }
+                        return newMode;
+                      });
+                    }}
+                    className={`btn ${isDrawingMode ? 'btn-warning' : 'btn-secondary'}`}
+                  >
+                    <i className="fas fa-pencil-alt"></i> {isDrawingMode ? "Drawing Mode ON" : "Drawing Mode"}
+                  </button> */}
+                </div>
+              </div>
+
+              <div className="panel-section">
+                <h3><i className="fas fa-volume-up"></i> Text-to-Speech</h3>
+                <div className="button-group">
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={handleTTS}
+                  >
+                    <i className="fas fa-play"></i> Read PDF
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={togglePauseResume} 
+                    disabled={!utterance}
+                  >
+                    <i className={`fas fa-${isPlaying ? 'pause' : 'play'}`}></i> {isPlaying ? "Pause" : "Resume"}
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={restartTTS} 
+                    disabled={!utterance}
+                  >
+                    <i className="fas fa-redo"></i> Restart
+                  </button>
+                </div>
+
+                <div className="form-group">
+                  <label>
+                    <i className="fas fa-user"></i> Voice:
+                    <select
+                      value={selectedVoice ? selectedVoice.name : ''}
+                      onChange={(e) => {
+                        const selected = voices.find(voice => voice.name === e.target.value);
+                        setSelectedVoice(selected);
+                      }}
+                      className="form-control"
+                    >
+                      {voices.map((voice, index) => (
+                        <option key={index} value={voice.name}>
+                          {voice.name} ({voice.lang})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="panel-section">
+                  <h3><i className="fas fa-highlighter"></i> Text Selection</h3>
+                  <div className="selected-text-display">
+                    {selectedText ? (
+                      <div className="selected-text-content">
+                        <p>{selectedText}</p>
+                        <button 
+                          onClick={speakSelectedText} 
+                          disabled={!selectedText}
+                          className="btn btn-primary"
+                        >
+                          <i className="fas fa-volume-up"></i> Read Selected Text
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-muted">Select text from the PDF to read it aloud</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>
+                    <i className="fas fa-tachometer-alt"></i> Speed:
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2"
+                      step="0.1"
+                      value={speed}
+                      onChange={(e) => updateSpeed(parseFloat(e.target.value))}
+                      className="form-range"
+                    />
+                    <span className="speed-value">{speed}x</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="panel-section">
+                <h3><i className="fas fa-font"></i> Text Appearance</h3>
+                <div className="form-group">
+                  <label>
+                    Font:
+                    <select 
+                      value={selectedFont}
+                      onChange={(e) => setSelectedFont(e.target.value)}
+                      className="form-control"
+                    >
+                      <option value="standard">Standard</option>
+                      <option value="opendyslexic">OpenDyslexic</option>
+                      <option value="lexend">Lexend</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="form-group">
+                  <label>
+                    Color Theme:
+                    <select
+                      value={textColorTheme}
+                      onChange={(e) => setTextColorTheme(e.target.value)}
+                      className="form-control"
+                    >
+                      <option value="default">Default</option>
+                      <option value="high-contrast">High Contrast</option>
+                      <option value="sepia">Sepia</option>
+                      <option value="dark">Dark Mode</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div className="panel-section">
+                <h3><i className="fas fa-comments"></i> Comments</h3>
+                <div className="comments-list">
+                  {comments.map(comment => (
+                    <div key={comment.id} className="comment-item">
+                      <div className="comment-content">
+                        <div className="comment-text">{comment.content}</div>
+                        <div className="comment-meta">
+                          <small>{new Date(comment.created_at).toLocaleString()}</small>
+                        </div>
+                      </div>
+                      <div className="comment-actions">
+                        <button 
+                          onClick={() => {
+                            setSelectedComment(comment);
+                            const highlight = document.querySelector(`[data-comment-id="${comment.id}"]`);
+                            if (highlight) {
+                              highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              const originalBg = highlight.style.backgroundColor;
+                              highlight.style.backgroundColor = 'rgba(255, 235, 59, 0.6)';
+                              setTimeout(() => {
+                                highlight.style.backgroundColor = originalBg || 'rgba(255, 248, 197, 0.7)';
+                              }, 1500);
+                            }
+                          }}
+                          className="btn btn-sm btn-view"
+                        >
+                          <i className="fas fa-eye"></i>
+                        </button>
+                        <button 
+                          onClick={() => deleteComment(comment.id)}
+                          className="btn btn-sm btn-danger"
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="comment-input">
+                  <div className="form-group">
+                    <label>New Comment</label>
+                    <textarea 
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Type your comment or use voice input..."
+                      className="form-control"
+                      rows="3"
+                    />
+                  </div>
+                  <div className="button-group">
+                    <button 
+                      onClick={toggleListening} 
+                      className={`btn ${isListening ? 'btn-danger' : 'btn-secondary'}`}
+                    >
+                      {isListening ? <FaMicrophoneSlash /> : <FaMicrophone />}
+                      {isListening ? ' Stop Listening' : ' Voice Input'}
+                    </button>
+                    <button 
+                      onClick={saveComment}
+                      disabled={!newComment.trim()}
+                      className="btn btn-primary"
+                    >
+                      <i className="fas fa-save"></i> Save
+                    </button>
+                  </div>
                   {transcript && (
                     <div className="transcript-preview">
-                      <p>Voice input: {transcript}</p>
+                      <p><strong>Voice input:</strong> {transcript}</p>
                     </div>
                   )}
-                  <button onClick={handleSaveAndReset}>Save Comment</button>
                 </div>
               </div>
-  
-              <div className="selected-text-section">
-                <h4>Read Selected Text</h4>
-                <div className="selected-text-display">
-                  {selectedText || "Select text from the PDF to read it aloud"}
-                </div>
+
+              <div className="panel-section">
+                <h3><i className="fas fa-file-export"></i> Export</h3>
                 <button 
-                  onClick={speakSelectedText} 
-                  disabled={!selectedText}
-                  className="control-button"
+                  onClick={exportPDFWithAnnotations}
+                  className="btn btn-primary"
                 >
-                  Read Selected Text
+                  <i className="fas fa-file-export"></i> Export PDF with Annotations
                 </button>
               </div>
             </div>
           </div>
-  
-          <div className="sign-out">
-            <button onClick={signOut}>Logout</button>
-          </div>
-          <div className="file-manager">
-          <button 
-            onClick={() => navigate('/FileManager')}
-            className="change-file-button"
-          >
-            Select Different File
-          </button>
-          </div>
         </>
       ) : (
-        <Auth supabaseClient={supabase} appearance={{ theme: ThemeSupa }} />
+        <div className="auth-container">
+          <Auth supabaseClient={supabase} appearance={{ theme: ThemeSupa }} />
+        </div>
       )}
     </div>
   );
 };
 
 export default DashboardPage;
-
-
+    
+  

@@ -1,5 +1,37 @@
-/* Dashboard Styles */
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Comic+Neue:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Lexend:wght@100..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Comic+Neue:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Lexend:wght@100..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+
+
+.font-standard {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+/* 
+.font-opendyslexic {
+  font-family: 'OpenDyslexic', sans-serif;
+} */
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/OpenDyslexic-Regular.woff2') format('woff2'),
+       url('/OpenDyslexic-Regular.woff') format('woff');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexicBold';
+  src: url('/fonts/OpenDyslexic-Bold.woff2') format('woff2'),
+       url('/fonts/OpenDyslexic-Bold.woff') format('woff');
+  font-weight: 700;
+  font-display: swap;
+}
+
+.font-lexend {
+  font-family: 'Lexend', sans-serif;
+}
 
 :root {
   --primary-color: #4361ee;
@@ -71,11 +103,15 @@
 
 
 
+/* 
+
 .annotation-container {
   position: relative;
   width: 100%;
   height: 100%;
-}
+  top: 0;
+  left: 0;
+} */
 
 .pdf-canvas {
   width: 100%;
@@ -87,14 +123,14 @@
 }
 
 .annotation-canvas {
-  pointer-events: none;
-
+  /* pointer-events: none;  allows for text slecet to be default */
   width: 100%;
   height: 100%;
   top: 0;
   left: 0;
   position: absolute;
-  z-index: 3; /* Top layer for annotations */
+  z-index: 2; /* Top layer for annotations */
+  background: transparent !important;
   
 }
 
@@ -104,22 +140,22 @@
   position: absolute;
   width: 100%;
   height: 100%;
-  z-index: 2;
+  z-index: 3;
   /* Remove these lines below: */
   /* color: transparent !important; */
-  /* pointer-events: none; */
+  pointer-events: none;
   /* user-select: none; */
+  
 }
 
-
-
+/* 
 .text-highlight-overlay {
   top: 0;
   left: 0;
   position: absolute;
-  z-index: 4; /* Above everything except active annotations */
+  z-index: 4; 
   pointer-events: none;
-}
+} */
 
 
 .control-panel {

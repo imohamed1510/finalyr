@@ -8,19 +8,19 @@
     src: url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.3/fonts/OpenDyslexic-Regular.woff') format('woff');
   } */
 
-  @font-face {
+  /* @font-face {
     font-family: 'OpenDyslexic';
     src: url('../fonts/OpenDyslexic-Regular.woff2') format('woff2'),
          url('../fonts/OpenDyslexic-Regular.woff') format('woff');
     font-weight: normal;
     font-style: normal;
-  }
+  } */
   
   /* <style>
 @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 </style> */
 
-  .text-layer.high-contrast {
+  /* .text-layer.high-contrast {
     background-color: #f0f0f0;
     color: #000 !important;
   }
@@ -34,7 +34,7 @@
     background-color: #222;
     color: #eee !important;
   }
-  
+   */
   /* Add similar @font-face rules for other weights/styles if needed */
   
   

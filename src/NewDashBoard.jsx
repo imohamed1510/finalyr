@@ -12,9 +12,8 @@ import { FaComment, FaTimes } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './fonts.css'
 import { FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
-
-
-
+import { TextLayerBuilder } from 'pdfjs-dist/web/pdf_viewer';
+import 'pdfjs-dist/web/pdf_viewer.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
@@ -54,24 +53,7 @@ const DashboardPage = () => {
   const [showTextOverlay, setShowTextOverlay] = useState(false);
   const isDrawingModeRef = useRef(isDrawingMode);
   const annotationContainerRef = useRef(null);
-
-
   
-
-  // useEffect(() => {
-  //   getUser();
-  // }, []);
-
-  // useEffect(() => {
-  //   if (userId){
-  //     getMedia();
-
-  //         // Check for passed file after userId is available
-  //     if (passedFile) {
-  //     setSelectedFile(passedFile);
-  //     }
-  //   }
-  // }, [userId]);
 
   // Single useEffect for initialization
   useEffect(() => {
@@ -110,58 +92,56 @@ const DashboardPage = () => {
     }
   };
 
-
-  const uploadFile = async (file) => {
-    if (!file || !userId) return;
+  // const uploadFile = async (file) => {
+  //   if (!file || !userId) return;
   
-    const fileId = uuidv4();
-    const filePath = `${userId}/${fileId}_${file.name}`;
+  //   const fileId = uuidv4();
+  //   const filePath = `${userId}/${fileId}_${file.name}`;
     
-    try {
+  //   try {
       
-      const { error: uploadError } = await supabase.storage
-        .from('uploads')
-        .upload(filePath, file);
+  //     const { error: uploadError } = await supabase.storage
+  //       .from('uploads')
+  //       .upload(filePath, file);
   
-      if (uploadError) throw uploadError;
+  //     if (uploadError) throw uploadError;
   
-      //Create a URL for immediate use
-      const { data: { publicUrl } } = supabase.storage
-        .from('uploads')
-        .getPublicUrl(filePath);
+  //     //Create a URL for immediate use
+  //     const { data: { publicUrl } } = supabase.storage
+  //       .from('uploads')
+  //       .getPublicUrl(filePath);
   
-      //Update UI as
-      setSelectedFile({ 
-        id: fileId, 
-        url: publicUrl, 
-        type: file.type, 
-        name: file.name 
-      });
+  //     //Update UI as
+  //     setSelectedFile({ 
+  //       id: fileId, 
+  //       url: publicUrl, 
+  //       type: file.type, 
+  //       name: file.name 
+  //     });
   
       
-      await getMedia();
+  //     await getMedia();
   
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('File upload failed. Please try again.');
-    }
-  };
+  //   } catch (error) {
+  //     console.error('Upload error:', error);
+  //     alert('File upload failed. Please try again.');
+  //   }
+  // };
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) uploadFile(file);
-  };
+  // const handleFileSelect = (e) => {
+  //   const file = e.target.files[0];
+  //   if (file) uploadFile(file);
+  // };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) uploadFile(file);
-  };
+  // const handleDrop = (e) => {
+  //   e.preventDefault();
+  //   const file = e.dataTransfer.files[0];
+  //   if (file) uploadFile(file);
+  // };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
+  // const handleDragOver = (e) => {
+  //   e.preventDefault();
+  // };
 
   //updated the getmedia
   const getMedia = async () => {
@@ -205,8 +185,9 @@ const DashboardPage = () => {
 
       fabricCanvas.current = new fabric.Canvas(annotationCanvasRef.current, {
         isDrawingMode: isDrawingMode, //chnaged from true
+        interactive: true,
         selection: false,
-        preserveObjectStacking: true, // Keep annotations visible
+        preserveObjectStacking: false, // Keep annotations visible
         backgroundColor: 'transparent', // Show through to PDF
         width: annotationCanvasRef.current.width,
         height: annotationCanvasRef.current.height,
@@ -238,41 +219,42 @@ const DashboardPage = () => {
       });
     }
   };
+  
+  
+  // const loadAnnotations = async () => {
+  //   if (!selectedFile || !userId) return;
 
-  const loadAnnotations = async () => {
-    if (!selectedFile || !userId) return;
+  //   const { data, error } = await supabase
+  //     .from("annotations")
+  //     .select("annotation_data")
+  //     .eq("file_id", selectedFile.id)
+  //     .eq("user_id", userId);
 
-    const { data, error } = await supabase
-      .from("annotations")
-      .select("annotation_data")
-      .eq("file_id", selectedFile.id)
-      .eq("user_id", userId);
-
-    if (error) {
-      console.error("Error fetching annotations:", error);
-      return;
-    }
+  //   if (error) {
+  //     console.error("Error fetching annotations:", error);
+  //     return;
+  //   }
 
     
-    fabricCanvas.current.clear();
+  //   fabricCanvas.current.clear();
 
-    if (data.length > 0) {
-      data.forEach((annotation) => {
-        const annotationData = annotation.annotation_data;
-        const pathObject = new fabric.Path(annotationData.path, {
-          left: annotationData.left,
-          top: annotationData.top,
-          fill: null,
-          stroke: annotationData.stroke || "black",
-          strokeWidth: annotationData.strokeWidth || 2,
-          selectable: false,
-        });
+  //   if (data.length > 0) {
+  //     data.forEach((annotation) => {
+  //       const annotationData = annotation.annotation_data;
+  //       const pathObject = new fabric.Path(annotationData.path, {
+  //         left: annotationData.left,
+  //         top: annotationData.top,
+  //         fill: null,
+  //         stroke: annotationData.stroke || "black",
+  //         strokeWidth: annotationData.strokeWidth || 2,
+  //         selectable: false,
+  //       });
 
-        fabricCanvas.current.add(pathObject);
-        fabricCanvas.current.renderAll();
-      });
-    }
-  };
+  //       fabricCanvas.current.add(pathObject);
+  //       fabricCanvas.current.renderAll();
+  //     });
+  //   }
+  // };
 
   const togglePauseResume = () => {
     const synth = window.speechSynthesis;
@@ -454,6 +436,52 @@ const DashboardPage = () => {
     synth.speak(newUtterance);
   };
 
+  //NEW VERSION DOESNT WORK
+  // const speakText = (text) => {
+  //   const synth = window.speechSynthesis;
+  //   synth.cancel();
+
+  //   const newUtterance = new SpeechSynthesisUtterance(text);
+  //   newUtterance.voice = selectedVoice;
+  //   newUtterance.rate = speed;
+
+  //   // In your speakText or onboundary handler:
+  //   newUtterance.onboundary = (event) => {
+  //     if (event.name === "word") {
+  //       const charIndex = event.charIndex;
+  //       const wordLength = event.charLength;
+
+  //       // Clear previous highlights
+  //       document.querySelectorAll('.tts-highlight').forEach(el => el.remove());
+
+  //       // Find matching text positions
+  //       const matching = textPositionsRef.current.filter(pos =>
+  //         pos.startIndex <= charIndex + wordLength &&
+  //         pos.endIndex >= charIndex
+  //       );
+
+  //       // Add highlights as absolutely positioned divs
+  //       matching.forEach(pos => {
+  //         const highlight = document.createElement('div');
+  //         highlight.className = 'tts-highlight';
+  //         highlight.style.position = 'absolute';
+  //         highlight.style.left = `${pos.x}px`;
+  //         highlight.style.top = `${pos.y - pos.height}px`;
+  //         highlight.style.width = `${pos.width}px`;
+  //         highlight.style.height = `${pos.height}px`;
+  //         highlight.style.zIndex = '1'; // Below text but above PDF
+  //         highlight.style.pointerEvents = 'none'; // Allow text selection through it
+
+  //         // Append to the same container as text layer
+  //         const textLayer = document.querySelector('.text-layer');
+  //         textLayer?.appendChild(highlight);
+  //       });
+  //     }
+  //   };
+  // }
+
+  
+
   useEffect(() => {
     if (selectedFile && selectedFile.type === "application/pdf") {
       renderPDF(selectedFile.url);
@@ -564,9 +592,10 @@ const DashboardPage = () => {
       });
   
       // Reinitialize everything
+      //CURRENTLY HAVE EDITED UP TO THIS POINT OF THE FILE!!!!!!
       initCanvas();
       await createTextLayer(page, viewport, scale);
-      loadAnnotations();
+      // loadAnnotations();
       fetchComments();
   
       if (fabricCanvas.current) {
@@ -582,134 +611,6 @@ const DashboardPage = () => {
       }
     }
   };
-
-  // // //FIXED HIGHLIGHTS WHEN SWUTCHING FILES
-  // const renderPDF = async (pdfUrl) => {
-  //   try {
-  //     // Clear existing highlights
-  //     currentHighlights.current.forEach(h => fabricCanvas.current?.remove(h));
-  //     currentHighlights.current = [];
-      
-  //     const pdf = await pdfjsLib.getDocument({ url: pdfUrl }).promise;
-  //     const page = await pdf.getPage(1);
-  //     const scale = 1.5;
-  //     const viewport = page.getViewport({ scale });
-  
-  //     // Reset canvases
-  //     const canvas = pdfCanvasRef.current;
-  //     const context = canvas.getContext("2d");
-  //     canvas.width = viewport.width;
-  //     canvas.height = viewport.height;
-  
-  //     annotationCanvasRef.current.width = viewport.width;
-  //     annotationCanvasRef.current.height = viewport.height;
-  
-  //     await page.render({ canvasContext: context, viewport }).promise;
-  
-  //     // Reinitialize everything
-  //     initCanvas();
-  //     await createTextLayer(page, viewport, scale);
-  //     loadAnnotations();
-  //     fetchComments();
-
-  //     if (fabricCanvas.current) {
-  //       fabricCanvas.current.renderAll();
-  //     }
-  
-  //   } catch (error) {
-  //     console.error("Error rendering PDF:", error);
-  //   }
-  // };
-
-  
-
-  // const createTextLayer = async (page, viewport, scale) => {
-  //   const textContent = await page.getTextContent();
-  //   let textLayer = document.querySelector(".text-layer");
-  
-  //   if (textLayer) textLayer.remove(); // Remove old layer if exists
-  
-  //   textLayer = document.createElement("div");
-  //   textLayer.className = "text-layer";
-  //   textLayer.style.position = "absolute";
-  //   textLayer.style.top = "0";
-  //   textLayer.style.left = "0";
-  //   textLayer.style.width = `${viewport.width}px`;
-  //   textLayer.style.height = `${viewport.height}px`;
-  //   textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";
-  //   textLayer.style.userSelect = isDrawingMode ? "none" : "text";
-  
-  //   textContent.items.forEach((item) => {
-  //     const textDiv = document.createElement("div");
-  //     const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-  
-  //     textDiv.textContent = item.str;
-  //     textDiv.style.position = "absolute";
-  //     textDiv.style.left = `${x}px`;
-  //     textDiv.style.top = `${y - item.height * scale}px`;
-  //     textDiv.style.fontSize = `${item.height * scale}px`;
-  //     textDiv.style.color = "transparent";
-  //     textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto";
-  
-  //     textLayer.appendChild(textDiv);
-  //   });
-  
-  //   textLayer.addEventListener("mouseup", handleTextSelection);
-  
-  //   const container = document.querySelector(".annotation-container");
-  //   if (container) container.appendChild(textLayer);
-  // };
-
-
-  //THIS ONE WORKS!!JUST NEED TO FIX MAKING HIHGLIHGTS AND ANNOTATIONS APPEAR IN CSS 
-  // const createTextLayer = async (page, viewport, scale) => {
-  //   const textContent = await page.getTextContent();
-  //   let textLayer = document.querySelector(".text-layer");
-  
-  //   if (textLayer) textLayer.remove();
-  
-  //   textLayer = document.createElement("div");
-  //   textLayer.className = "text-layer";
-  //   textLayer.style.position = "absolute";
-  //   textLayer.style.left = "0";
-  //   textLayer.style.top = "0";
-  //   textLayer.style.width = `${viewport.width}px`;
-  //   textLayer.style.height = `${viewport.height}px`;
-  //   textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";
-  //   textLayer.style.userSelect = isDrawingMode ? "none" : "text";
-    
-  //   // Add this to cover the original text
-  //   textLayer.style.backgroundColor = "white";
-  //   textLayer.style.opacity = "0.99"; // Slightly less than 1 to ensure proper compositing
-  
-  //   // Font handling
-  //   const fontFamily = selectedFont === 'opendyslexic' 
-  //     ? 'OpenDyslexic, sans-serif'
-  //     : selectedFont === 'lexend'
-  //       ? 'Lexend, sans-serif'
-  //       : 'Times New Roman, serif';
-  
-  //   textContent.items.forEach((item) => {
-  //     const textDiv = document.createElement("div");
-  //     const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-  
-  //     textDiv.textContent = item.str;
-  //     textDiv.style.position = "absolute";
-  //     textDiv.style.left = `${x}px`;
-  //     textDiv.style.top = `${y - item.height * scale}px`;      ;
-  //     textDiv.style.fontSize = `${item.height * scale}px`;
-  //     textDiv.style.fontFamily = fontFamily;
-  //     textDiv.style.color = "black"; // Changed from transparent to opaque
-  //     textDiv.style.lineHeight = "1"; // Ensure consistent line height
-  //     textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto";
-  
-  //     textLayer.appendChild(textDiv);
-  //   });
-  
-  //   textLayer.addEventListener("mouseup", handleTextSelection);
-  //   const container = document.querySelector(".annotation-container");
-  //   if (container) container.appendChild(textLayer);
-  // };
 
   const createTextLayer = async (page, viewport, scale) => {
     const textContent = await page.getTextContent();
@@ -731,20 +632,24 @@ const DashboardPage = () => {
     textLayer.style.opacity = "0.99";  // Slightly less than 1 to ensure compositing works properly
   
     // Allow text selection when drawing mode is off
-    textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";  // Allow interaction only when not drawing
-    textLayer.style.userSelect = isDrawingMode ? "none" : "text"; //Just added
+    // textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";  // Allow interaction only when not drawing
+    // textLayer.style.userSelect = isDrawingMode ? "none" : "text"; //Just added
 
+    textLayer.style.pointerEvents = "auto";
+    textLayer.style.userSelect = "text";
+    
     // Font handling
     const fontFamily = selectedFont === 'opendyslexic' 
       ? 'OpenDyslexic, sans-serif'
       : selectedFont === 'lexend'
         ? 'Lexend, sans-serif'
         : 'Times New Roman, serif';
+      
   
     textContent.items.forEach((item) => {
       const textDiv = document.createElement("div");
       const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-  
+      
       textDiv.textContent = item.str;
       textDiv.style.position = "absolute";
       textDiv.style.left = `${x}px`;
@@ -755,9 +660,13 @@ const DashboardPage = () => {
       textDiv.style.lineHeight = "1"; // Ensure consistent line height
   
       // Ensure text is selectable when drawing mode is off
-      textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto"; 
+      // textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto"; 
+      
+      textDiv.style.pointerEvents = "auto"; 
+      textLayer.style.userSelect = "text";
   
       textLayer.appendChild(textDiv);
+      
     });
   
     // Attach the event listener for text selection
@@ -769,69 +678,163 @@ const DashboardPage = () => {
     } else {
       console.warn("annotationContainerRef is null");
     }
-  
-    // const container = document.querySelector(".annotation-container");
-    // if (container) container.appendChild(textLayer);
   };
 
+  //nearly correct fonts but has top to bottom
+  // const createTextLayer = async (page, viewport, scale) => {
+  //   const textContent = await page.getTextContent();
+  //   let textLayer = document.querySelector(".text-layer");
+  
+  //   if (textLayer) textLayer.remove();
+  
+  //   textLayer = document.createElement("div");
+  //   textLayer.className = "text-layer";
+  //   textLayer.style.position = "absolute";
+  //   textLayer.style.left = "0";
+  //   textLayer.style.top = "0";
+  //   textLayer.style.width = `${viewport.width}px`;
+  //   textLayer.style.height = `${viewport.height}px`;
+  //   textLayer.style.zIndex = "2";
+  //   textLayer.style.backgroundColor = "white";
+  //   textLayer.style.opacity = "0.99";
+  //   textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";
+  //   textLayer.style.userSelect = isDrawingMode ? "none" : "text";
+  
+  //   // Font handling - we'll use the same metrics for all fonts
+  //   const fontFamily = selectedFont === 'opendyslexic' 
+  //     ? 'OpenDyslexic, sans-serif'
+  //     : selectedFont === 'lexend'
+  //       ? 'Lexend, sans-serif'
+  //       : 'Times New Roman, serif';
+  
+  //   // Calculate average character width for the standard font
+  //   const avgCharWidth = 0.5; // Adjust this based on your standard font metrics
+  //   const lineHeight = 1.2; // Standard line height multiplier
+  
+  //   textContent.items.forEach((item) => {
+  //     const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
+  //     const canvasY = viewport.height - y - (item.height * scale);
+  
+  //     const textDiv = document.createElement("div");
+  //     textDiv.textContent = item.str;
+  //     textDiv.style.position = "absolute";
+  //     textDiv.style.left = `${x}px`;
+  //     textDiv.style.top = `${canvasY}px`;
+      
+  //     // Use the original PDF dimensions for sizing
+  //     textDiv.style.width = `${item.width * scale}px`;
+  //     textDiv.style.height = `${item.height * scale * lineHeight}px`;
+      
+  //     // Apply the selected font but maintain standard size
+  //     textDiv.style.fontSize = `${item.height * scale}px`;
+  //     textDiv.style.fontFamily = fontFamily;
+  //     textDiv.style.color = "black";
+  //     textDiv.style.lineHeight = `${lineHeight}`;
+  //     textDiv.style.whiteSpace = "nowrap";
+  //     textDiv.style.overflow = "hidden";
+  //     textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto";
+  
+  //     textLayer.appendChild(textDiv);
+  //   });
+  
+  //   // Attach the event listener for text selection
+  //   textLayer.addEventListener("mouseup", handleTextSelection);
+  
+  //   if (annotationContainerRef.current) {
+  //     annotationContainerRef.current.appendChild(textLayer);
+  //   } else {
+  //     console.warn("annotationContainerRef is null");
+  //   }
+  // };
+
   // const toggleDrawingMode = () => {
-  //   setIsDrawingMode(prev => {
-  //     const newMode = !prev;
+  //   setIsDrawingMode(prevMode => {
+  //     const newMode = !prevMode;
       
+  //     // Update Fabric.js canvas
   //     if (fabricCanvas.current) {
-  //       // Always keep annotations visible
-  //       fabricCanvas.current.forEachObject(obj => {
-  //         obj.selectable = false; // Keep objects non-selectable
-  //         obj.evented = false;    // Disable interaction when not in drawing mode
-  //       });
-        
-  //       // Only enable drawing when toggled on
   //       fabricCanvas.current.isDrawingMode = newMode;
+  //       fabricCanvas.current.selection = !newMode;
         
-  //       // Update text layer behavior
-  //       const textLayer = document.querySelector(".text-layer");
-  //       if (textLayer) {
-  //         textLayer.style.pointerEvents = newMode ? "none" : "auto";
-  //         textLayer.style.userSelect = newMode ? "none" : "text";
-  //       }
+  //       // Set all objects as non-interactive in drawing mode
+  //       fabricCanvas.current.forEachObject(obj => {
+  //         obj.selectable = !newMode;
+  //         obj.evented = !newMode;
+  //       });
   //     }
-      
+  
+  //     // Update text layer interactivity
+  //     const textLayer = document.querySelector(".text-layer");
+  //     if (textLayer) {
+  //       textLayer.style.pointerEvents = newMode ? "none" : "auto";
+  //       textLayer.style.userSelect = newMode ? "none" : "text";
+        
+  //       // Force style recalculation
+  //       textLayer.style.display = 'none';
+  //       textLayer.offsetHeight; // Trigger reflow
+  //       textLayer.style.display = 'block';
+  //     }
+  
   //     return newMode;
   //   });
   // };
 
-  const toggleDrawingMode = () => {
-    setIsDrawingMode(prevMode => {
-      const newMode = !prevMode;
-      
-      // Update Fabric.js canvas
-      if (fabricCanvas.current) {
-        fabricCanvas.current.isDrawingMode = newMode;
-        fabricCanvas.current.selection = !newMode;
-        
-        // Set all objects as non-interactive in drawing mode
-        fabricCanvas.current.forEachObject(obj => {
-          obj.selectable = !newMode;
-          obj.evented = !newMode;
-        });
-      }
+  // const toggleDrawingMode = () => {
+  //   setIsDrawingMode(prev => {
+  //     const newMode = !prev;
   
-      // Update text layer interactivity
-      const textLayer = document.querySelector(".text-layer");
-      if (textLayer) {
-        textLayer.style.pointerEvents = newMode ? "none" : "auto";
-        textLayer.style.userSelect = newMode ? "none" : "text";
-        
-        // Force style recalculation
-        textLayer.style.display = 'none';
-        textLayer.offsetHeight; // Trigger reflow
-        textLayer.style.display = 'block';
-      }
+  //     const annotationCanvas = annotationCanvasRef.current;
+  //     const textLayer = document.querySelector('.text-layer');
   
-      return newMode;
-    });
-  };
+  //     if (annotationCanvas) {
+  //       annotationCanvas.style.pointerEvents = newMode ? 'auto' : 'none';
+  //     }
+  
+  //     if (textLayer) {
+  //       textLayer.style.pointerEvents = newMode ? 'none' : 'auto';
+  //       textLayer.style.userSelect = newMode ? 'none' : 'text';
+  //     }
+  
+  //     if (fabricCanvas.current) {
+  //       const canvas = fabricCanvas.current;
+  //       canvas.isDrawingMode = newMode;
+  //       canvas.selection = !newMode;
+  
+  //       // Optional but helpful: make annotations unselectable while drawing
+  //       canvas.forEachObject(obj => {
+  //         obj.selectable = !newMode;
+  //         obj.evented = !newMode;
+  //       });
+  
+  //       canvas.renderAll();
+  //     }
+  
+  //     return newMode;
+  //   });
+  // };
+  
 
+  // Set initial state (text selection mode)
+  // useEffect(() => {
+  //   // Initialize pointer events
+  //   const annotationCanvas = annotationCanvasRef.current;
+  //   const textLayer = document.querySelector('.text-layer');
+    
+  //   if (annotationCanvas) annotationCanvas.style.pointerEvents = 'none';
+  //   if (textLayer) textLayer.style.pointerEvents = 'auto';
+  
+  //   // Initialize Fabric.js
+  //   if (fabricCanvas.current) {
+  //     fabricCanvas.current.isDrawingMode = false;
+  //     fabricCanvas.current.selection = false;
+  //     fabricCanvas.current.interactive = true;
+  //   }
+  // }, []);
+
+  useEffect(() => {
+    const textLayer = document.querySelector(".text-layer");
+  });
+  
   useEffect(() => {
     const updateFonts = async () => {
       if (!selectedFile) return;
@@ -1019,7 +1022,6 @@ const DashboardPage = () => {
       setComments([]); // Clear comments when no file is selected
     }
   }, [selectedFile?.id]); // Only run when file ID changes
-
 
   const fetchComments = async () => {
     if (!selectedFile || !userId) return;
@@ -1407,6 +1409,7 @@ const DashboardPage = () => {
                 <div className="pdf-viewer">
                   <div className="annotation-container" ref={annotationContainerRef}>
                     <canvas ref={pdfCanvasRef} className="pdf-canvas"></canvas>
+                    <div className="text-layer"></div>
                     <canvas ref={annotationCanvasRef} className="annotation-canvas"></canvas>
                   </div>
                 </div>
@@ -1430,13 +1433,13 @@ const DashboardPage = () => {
                   >
                     <i className="fas fa-comment"></i> Add Comment
                   </button>
-                  <button
+                  {/* <button
                   onClick={() => toggleDrawingMode()} // Make sure this matches your function name
                   className={`btn ${isDrawingMode ? 'btn-warning' : 'btn-secondary'}`}
                 >
                   <i className="fas fa-pencil-alt"></i> 
                   {isDrawingMode ? "Drawing Mode ON" : "Drawing Mode"}
-                </button>
+                </button> */}
                   {/* <button
                     onClick={() => {
                       setIsDrawingMode(prev => {
@@ -1674,5 +1677,6 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
-    
+  
+
   

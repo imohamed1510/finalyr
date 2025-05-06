@@ -92,57 +92,6 @@ const DashboardPage = () => {
     }
   };
 
-  // const uploadFile = async (file) => {
-  //   if (!file || !userId) return;
-  
-  //   const fileId = uuidv4();
-  //   const filePath = `${userId}/${fileId}_${file.name}`;
-    
-  //   try {
-      
-  //     const { error: uploadError } = await supabase.storage
-  //       .from('uploads')
-  //       .upload(filePath, file);
-  
-  //     if (uploadError) throw uploadError;
-  
-  //     //Create a URL for immediate use
-  //     const { data: { publicUrl } } = supabase.storage
-  //       .from('uploads')
-  //       .getPublicUrl(filePath);
-  
-  //     //Update UI as
-  //     setSelectedFile({ 
-  //       id: fileId, 
-  //       url: publicUrl, 
-  //       type: file.type, 
-  //       name: file.name 
-  //     });
-  
-      
-  //     await getMedia();
-  
-  //   } catch (error) {
-  //     console.error('Upload error:', error);
-  //     alert('File upload failed. Please try again.');
-  //   }
-  // };
-
-  // const handleFileSelect = (e) => {
-  //   const file = e.target.files[0];
-  //   if (file) uploadFile(file);
-  // };
-
-  // const handleDrop = (e) => {
-  //   e.preventDefault();
-  //   const file = e.dataTransfer.files[0];
-  //   if (file) uploadFile(file);
-  // };
-
-  // const handleDragOver = (e) => {
-  //   e.preventDefault();
-  // };
-
   //updated the getmedia
   const getMedia = async () => {
     if (!userId) return;
@@ -220,42 +169,6 @@ const DashboardPage = () => {
     }
   };
   
-  
-  // const loadAnnotations = async () => {
-  //   if (!selectedFile || !userId) return;
-
-  //   const { data, error } = await supabase
-  //     .from("annotations")
-  //     .select("annotation_data")
-  //     .eq("file_id", selectedFile.id)
-  //     .eq("user_id", userId);
-
-  //   if (error) {
-  //     console.error("Error fetching annotations:", error);
-  //     return;
-  //   }
-
-    
-  //   fabricCanvas.current.clear();
-
-  //   if (data.length > 0) {
-  //     data.forEach((annotation) => {
-  //       const annotationData = annotation.annotation_data;
-  //       const pathObject = new fabric.Path(annotationData.path, {
-  //         left: annotationData.left,
-  //         top: annotationData.top,
-  //         fill: null,
-  //         stroke: annotationData.stroke || "black",
-  //         strokeWidth: annotationData.strokeWidth || 2,
-  //         selectable: false,
-  //       });
-
-  //       fabricCanvas.current.add(pathObject);
-  //       fabricCanvas.current.renderAll();
-  //     });
-  //   }
-  // };
-
   const togglePauseResume = () => {
     const synth = window.speechSynthesis;
     if (isPlaying) {
@@ -436,52 +349,6 @@ const DashboardPage = () => {
     synth.speak(newUtterance);
   };
 
-  //NEW VERSION DOESNT WORK
-  // const speakText = (text) => {
-  //   const synth = window.speechSynthesis;
-  //   synth.cancel();
-
-  //   const newUtterance = new SpeechSynthesisUtterance(text);
-  //   newUtterance.voice = selectedVoice;
-  //   newUtterance.rate = speed;
-
-  //   // In your speakText or onboundary handler:
-  //   newUtterance.onboundary = (event) => {
-  //     if (event.name === "word") {
-  //       const charIndex = event.charIndex;
-  //       const wordLength = event.charLength;
-
-  //       // Clear previous highlights
-  //       document.querySelectorAll('.tts-highlight').forEach(el => el.remove());
-
-  //       // Find matching text positions
-  //       const matching = textPositionsRef.current.filter(pos =>
-  //         pos.startIndex <= charIndex + wordLength &&
-  //         pos.endIndex >= charIndex
-  //       );
-
-  //       // Add highlights as absolutely positioned divs
-  //       matching.forEach(pos => {
-  //         const highlight = document.createElement('div');
-  //         highlight.className = 'tts-highlight';
-  //         highlight.style.position = 'absolute';
-  //         highlight.style.left = `${pos.x}px`;
-  //         highlight.style.top = `${pos.y - pos.height}px`;
-  //         highlight.style.width = `${pos.width}px`;
-  //         highlight.style.height = `${pos.height}px`;
-  //         highlight.style.zIndex = '1'; // Below text but above PDF
-  //         highlight.style.pointerEvents = 'none'; // Allow text selection through it
-
-  //         // Append to the same container as text layer
-  //         const textLayer = document.querySelector('.text-layer');
-  //         textLayer?.appendChild(highlight);
-  //       });
-  //     }
-  //   };
-  // }
-
-  
-
   useEffect(() => {
     if (selectedFile && selectedFile.type === "application/pdf") {
       renderPDF(selectedFile.url);
@@ -658,10 +525,7 @@ const DashboardPage = () => {
       textDiv.style.fontFamily = fontFamily;
       textDiv.style.color = "black"; // Text color
       textDiv.style.lineHeight = "1"; // Ensure consistent line height
-  
-      // Ensure text is selectable when drawing mode is off
-      // textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto"; 
-      
+    
       textDiv.style.pointerEvents = "auto"; 
       textLayer.style.userSelect = "text";
   
@@ -680,156 +544,6 @@ const DashboardPage = () => {
     }
   };
 
-  //nearly correct fonts but has top to bottom
-  // const createTextLayer = async (page, viewport, scale) => {
-  //   const textContent = await page.getTextContent();
-  //   let textLayer = document.querySelector(".text-layer");
-  
-  //   if (textLayer) textLayer.remove();
-  
-  //   textLayer = document.createElement("div");
-  //   textLayer.className = "text-layer";
-  //   textLayer.style.position = "absolute";
-  //   textLayer.style.left = "0";
-  //   textLayer.style.top = "0";
-  //   textLayer.style.width = `${viewport.width}px`;
-  //   textLayer.style.height = `${viewport.height}px`;
-  //   textLayer.style.zIndex = "2";
-  //   textLayer.style.backgroundColor = "white";
-  //   textLayer.style.opacity = "0.99";
-  //   textLayer.style.pointerEvents = isDrawingMode ? "none" : "auto";
-  //   textLayer.style.userSelect = isDrawingMode ? "none" : "text";
-  
-  //   // Font handling - we'll use the same metrics for all fonts
-  //   const fontFamily = selectedFont === 'opendyslexic' 
-  //     ? 'OpenDyslexic, sans-serif'
-  //     : selectedFont === 'lexend'
-  //       ? 'Lexend, sans-serif'
-  //       : 'Times New Roman, serif';
-  
-  //   // Calculate average character width for the standard font
-  //   const avgCharWidth = 0.5; // Adjust this based on your standard font metrics
-  //   const lineHeight = 1.2; // Standard line height multiplier
-  
-  //   textContent.items.forEach((item) => {
-  //     const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-  //     const canvasY = viewport.height - y - (item.height * scale);
-  
-  //     const textDiv = document.createElement("div");
-  //     textDiv.textContent = item.str;
-  //     textDiv.style.position = "absolute";
-  //     textDiv.style.left = `${x}px`;
-  //     textDiv.style.top = `${canvasY}px`;
-      
-  //     // Use the original PDF dimensions for sizing
-  //     textDiv.style.width = `${item.width * scale}px`;
-  //     textDiv.style.height = `${item.height * scale * lineHeight}px`;
-      
-  //     // Apply the selected font but maintain standard size
-  //     textDiv.style.fontSize = `${item.height * scale}px`;
-  //     textDiv.style.fontFamily = fontFamily;
-  //     textDiv.style.color = "black";
-  //     textDiv.style.lineHeight = `${lineHeight}`;
-  //     textDiv.style.whiteSpace = "nowrap";
-  //     textDiv.style.overflow = "hidden";
-  //     textDiv.style.pointerEvents = isDrawingMode ? "none" : "auto";
-  
-  //     textLayer.appendChild(textDiv);
-  //   });
-  
-  //   // Attach the event listener for text selection
-  //   textLayer.addEventListener("mouseup", handleTextSelection);
-  
-  //   if (annotationContainerRef.current) {
-  //     annotationContainerRef.current.appendChild(textLayer);
-  //   } else {
-  //     console.warn("annotationContainerRef is null");
-  //   }
-  // };
-
-  // const toggleDrawingMode = () => {
-  //   setIsDrawingMode(prevMode => {
-  //     const newMode = !prevMode;
-      
-  //     // Update Fabric.js canvas
-  //     if (fabricCanvas.current) {
-  //       fabricCanvas.current.isDrawingMode = newMode;
-  //       fabricCanvas.current.selection = !newMode;
-        
-  //       // Set all objects as non-interactive in drawing mode
-  //       fabricCanvas.current.forEachObject(obj => {
-  //         obj.selectable = !newMode;
-  //         obj.evented = !newMode;
-  //       });
-  //     }
-  
-  //     // Update text layer interactivity
-  //     const textLayer = document.querySelector(".text-layer");
-  //     if (textLayer) {
-  //       textLayer.style.pointerEvents = newMode ? "none" : "auto";
-  //       textLayer.style.userSelect = newMode ? "none" : "text";
-        
-  //       // Force style recalculation
-  //       textLayer.style.display = 'none';
-  //       textLayer.offsetHeight; // Trigger reflow
-  //       textLayer.style.display = 'block';
-  //     }
-  
-  //     return newMode;
-  //   });
-  // };
-
-  // const toggleDrawingMode = () => {
-  //   setIsDrawingMode(prev => {
-  //     const newMode = !prev;
-  
-  //     const annotationCanvas = annotationCanvasRef.current;
-  //     const textLayer = document.querySelector('.text-layer');
-  
-  //     if (annotationCanvas) {
-  //       annotationCanvas.style.pointerEvents = newMode ? 'auto' : 'none';
-  //     }
-  
-  //     if (textLayer) {
-  //       textLayer.style.pointerEvents = newMode ? 'none' : 'auto';
-  //       textLayer.style.userSelect = newMode ? 'none' : 'text';
-  //     }
-  
-  //     if (fabricCanvas.current) {
-  //       const canvas = fabricCanvas.current;
-  //       canvas.isDrawingMode = newMode;
-  //       canvas.selection = !newMode;
-  
-  //       // Optional but helpful: make annotations unselectable while drawing
-  //       canvas.forEachObject(obj => {
-  //         obj.selectable = !newMode;
-  //         obj.evented = !newMode;
-  //       });
-  
-  //       canvas.renderAll();
-  //     }
-  
-  //     return newMode;
-  //   });
-  // };
-  
-
-  // Set initial state (text selection mode)
-  // useEffect(() => {
-  //   // Initialize pointer events
-  //   const annotationCanvas = annotationCanvasRef.current;
-  //   const textLayer = document.querySelector('.text-layer');
-    
-  //   if (annotationCanvas) annotationCanvas.style.pointerEvents = 'none';
-  //   if (textLayer) textLayer.style.pointerEvents = 'auto';
-  
-  //   // Initialize Fabric.js
-  //   if (fabricCanvas.current) {
-  //     fabricCanvas.current.isDrawingMode = false;
-  //     fabricCanvas.current.selection = false;
-  //     fabricCanvas.current.interactive = true;
-  //   }
-  // }, []);
 
   useEffect(() => {
     const textLayer = document.querySelector(".text-layer");
@@ -1319,64 +1033,6 @@ const DashboardPage = () => {
     setTranscript("");    // This clears the "Voice input" preview
   };
 
-  //THE EXPORT WORKS BUT I NEED TO FIX DISPLAYING OF THE PAGES
-  const exportPDFWithAnnotations = async () => {
-    if (!selectedFile || !pdfCanvasRef.current || !annotationCanvasRef.current) {
-      console.error("No file selected or canvas missing");
-      return;
-    }
-  
-    try {
-      const { PDFDocument, rgb } = await import('pdf-lib');
-      
-      // Use browser's native fetch instead of node-fetch
-      const existingPdfBytes = await fetch(selectedFile.url)
-        .then(res => res.arrayBuffer());
-      
-      // Rest of your code remains the same...
-      const pdfDoc = await PDFDocument.load(existingPdfBytes);
-      const annotationCanvas = annotationCanvasRef.current;
-      const annotationImageBytes = await new Promise(resolve => {
-        annotationCanvas.toBlob(blob => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(new Uint8Array(reader.result));
-          reader.readAsArrayBuffer(blob);
-        }, 'image/png');
-      });
-      
-      // Embed the annotation image
-      const annotationImage = await pdfDoc.embedPng(annotationImageBytes);
-      
-      // Add annotations to each page
-      const pages = pdfDoc.getPages();
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
-        const { width, height } = page.getSize();
-        
-        // Draw annotation image over the page
-        page.drawImage(annotationImage, {
-          x: 0,
-          y: 0,
-          width,
-          height,
-          opacity: 0.7,
-        });
-      }
-      
-      // Save the modified PDF
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${selectedFile.name.replace('.pdf', '')}_annotated.pdf`;
-      link.click();
-      
-    } catch (error) {
-      console.error("Error exporting PDF:", error);
-      alert("Failed to export PDF. Please try again.");
-    }
-  };
-
   return (
     <div className="dashboard-container">
       {userId ? (
@@ -1433,34 +1089,6 @@ const DashboardPage = () => {
                   >
                     <i className="fas fa-comment"></i> Add Comment
                   </button>
-                  {/* <button
-                  onClick={() => toggleDrawingMode()} // Make sure this matches your function name
-                  className={`btn ${isDrawingMode ? 'btn-warning' : 'btn-secondary'}`}
-                >
-                  <i className="fas fa-pencil-alt"></i> 
-                  {isDrawingMode ? "Drawing Mode ON" : "Drawing Mode"}
-                </button> */}
-                  {/* <button
-                    onClick={() => {
-                      setIsDrawingMode(prev => {
-                        const newMode = !prev;
-                        if (fabricCanvas.current) {
-                          fabricCanvas.current.isDrawingMode = newMode;
-                          fabricCanvas.current.selection = !newMode;
-                          
-                          const textLayer = document.querySelector(".text-layer");
-                          if (textLayer) {
-                            textLayer.style.pointerEvents = newMode ? "none" : "auto";
-                            textLayer.style.userSelect = newMode ? "none" : "text";
-                          }
-                        }
-                        return newMode;
-                      });
-                    }}
-                    className={`btn ${isDrawingMode ? 'btn-warning' : 'btn-secondary'}`}
-                  >
-                    <i className="fas fa-pencil-alt"></i> {isDrawingMode ? "Drawing Mode ON" : "Drawing Mode"}
-                  </button> */}
                 </div>
               </div>
 
@@ -1653,16 +1281,6 @@ const DashboardPage = () => {
                     </div>
                   )}
                 </div>
-              </div>
-
-              <div className="panel-section">
-                <h3><i className="fas fa-file-export"></i> Export</h3>
-                <button 
-                  onClick={exportPDFWithAnnotations}
-                  className="btn btn-primary"
-                >
-                  <i className="fas fa-file-export"></i> Export PDF with Annotations
-                </button>
               </div>
             </div>
           </div>

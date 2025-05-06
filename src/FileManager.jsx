@@ -371,9 +371,6 @@ const FileManager = () => {
                         <i className="fas fa-cloud-upload-alt"></i>
                         <h3>Drag & Drop Files Here</h3>
                         <p>or click to browse files</p>
-                        <button className="btn btn-outline">
-                            <i className="fas fa-file-upload"></i> Select Files
-                        </button>
                     </div>
                 </label>
                 

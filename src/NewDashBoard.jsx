@@ -566,27 +566,7 @@ const DashboardPage = () => {
     
     updateFonts();
   }, [selectedFont]);
-  
-
-  const applyTheme = (element) => {
-    element.className = `text-layer ${selectedFont} ${textColorTheme}`;
-    switch(textColorTheme) {
-      case 'high-contrast':
-        element.style.backgroundColor = '#f0f0f0';
-        break;
-      case 'sepia':
-        element.style.backgroundColor = '#f4ecd8';
-        break;
-      case 'dark':
-        element.style.backgroundColor = '#222';
-        element.style.color = '#eee';
-        break;
-      default:
-        element.style.backgroundColor = '';
-        element.style.color = 'transparent';
-    }
-  };
-  
+    
   const getXPathForElement = (element) => {
     if (element === document.body) return '/html/body';
   
@@ -1187,22 +1167,6 @@ const DashboardPage = () => {
                       <option value="standard">Standard</option>
                       <option value="opendyslexic">OpenDyslexic</option>
                       <option value="lexend">Lexend</option>
-                    </select>
-                  </label>
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    Color Theme:
-                    <select
-                      value={textColorTheme}
-                      onChange={(e) => setTextColorTheme(e.target.value)}
-                      className="form-control"
-                    >
-                      <option value="default">Default</option>
-                      <option value="high-contrast">High Contrast</option>
-                      <option value="sepia">Sepia</option>
-                      <option value="dark">Dark Mode</option>
                     </select>
                   </label>
                 </div>

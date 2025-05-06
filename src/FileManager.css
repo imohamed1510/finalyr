@@ -454,6 +454,17 @@
     gap: 10px;
 }
 
+.btn-logout {
+    background-color: transparent;
+    color: var(--danger-color);
+    border-color: var(--danger-color);
+  }
+  
+.btn-logout:hover {
+background-color: rgba(247, 37, 133, 0.1);
+}
+
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .file-system-grid {

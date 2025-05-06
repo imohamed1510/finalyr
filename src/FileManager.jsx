@@ -306,6 +306,15 @@ const FileManager = () => {
         setCurrentFolder(pathParts.join('/'));
     };
 
+    const signOut = async () => {
+        try {
+            await supabase.auth.signOut();
+            navigate('/SignIn'); 
+        } catch (error) {
+            console.error('Error signing out:', error);
+        }
+    };
+
     return (
         <div className="file-manager-container">
             <div className="file-manager-header">
@@ -332,6 +341,12 @@ const FileManager = () => {
                         disabled={isLoading}
                     >
                         <i className="fas fa-folder-plus"></i> New Folder
+                    </button>
+                    <button 
+                        onClick={signOut}
+                        className="btn btn-logout"
+                    >
+                        <i className="fas fa-sign-out-alt"></i> Logout
                     </button>
                 </div>
             </div>

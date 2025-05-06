@@ -637,12 +637,7 @@ const DashboardPage = () => {
     if (selectedText.trim()) {
       // Cancel any ongoing speech
       window.speechSynthesis.cancel();
-
-      // Clear existing highlights
-      currentHighlights.current.forEach(h => fabricCanvas.current.remove(h));
-      currentHighlights.current = [];
-      fabricCanvas.current.renderAll();
-
+    
       // Create a new utterance
       const newUtterance = new SpeechSynthesisUtterance(selectedText);
       newUtterance.voice = selectedVoice;
@@ -656,11 +651,6 @@ const DashboardPage = () => {
       newUtterance.onend = () => {
         console.log("TTS ended");
         setIsPlaying(false);
-
-        // Clear highlights when speech ends
-        currentHighlights.current.forEach(h => fabricCanvas.current.remove(h));
-        currentHighlights.current = [];
-        fabricCanvas.current.renderAll();
       };
 
       newUtterance.onerror = (error) => {
@@ -678,25 +668,6 @@ const DashboardPage = () => {
             pos.startIndex <= charIndex + wordLength &&
             pos.endIndex >= charIndex
           );
-
-          // Clear previous highlights
-          currentHighlights.current.forEach(h => fabricCanvas.current.remove(h));
-          currentHighlights.current = [];
-
-          // Add new highlights
-          matching.forEach(pos => {
-            const rect = new fabric.Rect({
-              left: pos.x,
-              top: pos.y - pos.height,
-              width: pos.width,
-              height: pos.height,
-              fill: 'rgba(255, 255, 0, 0.3)', // Yellow highlight
-              selectable: false,
-            });
-            fabricCanvas.current.add(rect);
-            currentHighlights.current.push(rect);
-          });
-
           fabricCanvas.current.renderAll();
         }
       };
